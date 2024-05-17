@@ -7,30 +7,50 @@ namespace System\Modules\Utils\Models;
  */
 class ExtendedDateTime extends \DateTime
 {
-    public function __construct(string $datetime = '')
+    private \IntlDateFormatter $fullDateTimeFormatter;
+    private \IntlDateFormatter $dateTimeFormatter;
+    private \IntlDateFormatter $dateFormatter;
+    private \IntlDateFormatter $timeFormatter;
+
+    // ##############
+    // ### Create ###
+    // ##############
+
+    public function __construct(string $datetime = 'now', string $timeZoneString = null)
     {
-        $locale = date_default_timezone_get();
-        if (empty($datetime)) {
-            parent::__construct();
-            $this->setTimezone(new \DateTimeZone($locale));
-        } elseif (strlen($datetime) > 0 && $datetime[0] === '@') {
-            parent::__construct($datetime);
-            $this->setTimezone(new \DateTimeZone($locale));
-        } else {
-            parent::__construct('', new \DateTimeZone($locale));
-
-            $date_format = 'Y-m-d';
-            if (strpos($datetime, ':') !== false) {
-                $date_format .= ' H:i';
-            }
-
-            $with_format = ExtendedDateTime::createFromFormat($date_format, $datetime, new \DateTimeZone($locale));
-            if ($with_format === false) {
-                throw new \Exception("Wrong date format: {$datetime}, required: {$date_format}");
-            }
-
-            $this->setTimestamp($with_format->getTimestamp());
+        if (empty($timeZoneString)) {
+            $timeZoneString = date_default_timezone_get();
         }
+        $timeZone = new \DateTimeZone($timeZoneString);
+        $locale = setlocale(LC_TIME, 0);
+        $locale = explode('.', $locale)[0];
+
+        parent::__construct($datetime, $timeZone);
+
+        $this->fullDateTimeFormatter = new \IntlDateFormatter(
+            $locale,
+            \IntlDateFormatter::FULL,
+            \IntlDateFormatter::FULL,
+            $timeZoneString
+        );
+        $this->dateTimeFormatter = new \IntlDateFormatter(
+            $locale,
+            \IntlDateFormatter::SHORT,
+            \IntlDateFormatter::SHORT,
+            $timeZoneString
+        );
+        $this->dateFormatter = new \IntlDateFormatter(
+            $locale,
+            \IntlDateFormatter::SHORT,
+            \IntlDateFormatter::NONE,
+            $timeZoneString
+        );
+        $this->timeFormatter = new \IntlDateFormatter(
+            $locale,
+            \IntlDateFormatter::NONE,
+            \IntlDateFormatter::SHORT,
+            $timeZoneString
+        );
     }
 
     public function previousMonth()
@@ -87,5 +107,30 @@ class ExtendedDateTime extends \DateTime
         $tmp->endOfTheMonth();
 
         return $tmp->getTimestamp();
+    }
+
+
+    // ##############
+    // ### Format ###
+    // ##############
+
+    public function formatFullDateTime(): string
+    {
+        return $this->fullDateTimeFormatter->format($this);
+    }
+
+    public function formatDateTime(): string
+    {
+        return $this->dateTimeFormatter->format($this);
+    }
+
+    public function formatDate(): string
+    {
+        return $this->dateFormatter->format($this);
+    }
+
+    public function formatTime(): string
+    {
+        return $this->timeFormatter->format($this);
     }
 }
