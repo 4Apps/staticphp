@@ -7,6 +7,11 @@ namespace System\Modules\Utils\Models;
  */
 class ExtendedDateTime extends \DateTime
 {
+    public static string | null $fullDateTimeFormat = null;
+    public static string | null $dateTimeFormat = null;
+    public static string | null $dateFormat = null;
+    public static string | null $timeFormat = null;
+
     private \IntlDateFormatter $fullDateTimeFormatter;
     private \IntlDateFormatter $dateTimeFormatter;
     private \IntlDateFormatter $dateFormatter;
@@ -16,8 +21,10 @@ class ExtendedDateTime extends \DateTime
     // ### Create ###
     // ##############
 
-    public function __construct(string $datetime = 'now', string $timeZoneString = null)
-    {
+    public function __construct(
+        string $datetime = 'now',
+        string $timeZoneString = null
+    ) {
         if (empty($timeZoneString)) {
             $timeZoneString = date_default_timezone_get();
         }
@@ -25,32 +32,45 @@ class ExtendedDateTime extends \DateTime
         $locale = setlocale(LC_TIME, 0);
         $locale = explode('.', $locale)[0];
 
-        parent::__construct($datetime, $timeZone);
-
         $this->fullDateTimeFormatter = new \IntlDateFormatter(
             $locale,
             \IntlDateFormatter::FULL,
             \IntlDateFormatter::FULL,
-            $timeZoneString
+            $timeZoneString,
+            null,
+            self::$fullDateTimeFormat
         );
         $this->dateTimeFormatter = new \IntlDateFormatter(
             $locale,
             \IntlDateFormatter::SHORT,
             \IntlDateFormatter::SHORT,
-            $timeZoneString
+            $timeZoneString,
+            null,
+            self::$dateTimeFormat
         );
         $this->dateFormatter = new \IntlDateFormatter(
             $locale,
             \IntlDateFormatter::SHORT,
             \IntlDateFormatter::NONE,
-            $timeZoneString
+            $timeZoneString,
+            null,
+            self::$dateFormat
         );
         $this->timeFormatter = new \IntlDateFormatter(
             $locale,
             \IntlDateFormatter::NONE,
             \IntlDateFormatter::SHORT,
-            $timeZoneString
+            $timeZoneString,
+            null,
+            self::$timeFormat
         );
+
+        try {
+            parent::__construct($datetime, $timeZone);
+        } catch (\Exception $e) {
+            $timestamp = $this->dateTimeFormatter->parse($datetime);
+            parent::__construct("@{$timestamp}", $timeZone);
+        }
     }
 
     public function previousMonth()

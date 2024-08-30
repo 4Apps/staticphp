@@ -5,8 +5,10 @@ namespace System\Modules\Presentation\Models\Tables\Enums;
 enum FilterType: string
 {
     case TEXT = 'text';
+    case TEXT_EXACT = 'text_exact';
     case INT8 = 'int';
     case DECIMAL = 'decimal';
+    case BOOLEAN = 'boolean';
     case DATE = 'date';
     case DATETIME = 'datetime';
     case DATEINTERVAL = 'dateinterval';

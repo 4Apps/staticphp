@@ -5,6 +5,7 @@ use System\Modules\Core\Models\Logger;
 use System\Modules\Core\Models\Config;
 use System\Modules\Core\Models\Router;
 use System\Modules\Core\Models\Timers;
+use System\Modules\Utils\Models\ExtendedDateTime;
 
 // Set microtime
 $microtime = microtime(true);
@@ -16,6 +17,8 @@ require_once dirname(__FILE__) . '/Autoload.php';
 Config::load(['Config', 'Routing']);
 
 // Set debug
+Config::$items['now'] = time();
+Config::$items['date_time'] = new ExtendedDateTime();
 Config::$items['debug'] = (
     Config::get('debug')
     || in_array(

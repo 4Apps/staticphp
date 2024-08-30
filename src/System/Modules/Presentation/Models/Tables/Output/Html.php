@@ -232,11 +232,11 @@ class Html implements OutputInterface
             case ColumnType::DATETIME:
             case ColumnType::DATEINTERVAL:
                 if ($forColumn->type == ColumnType::DATE) {
-                    $classes .= ' datepicker';
+                    $classes .= ' datepicker-trigger';
                 } elseif ($forColumn->type == ColumnType::DATETIME) {
-                    $classes .= ' datetimepicker';
+                    $classes .= ' datetimepicker-trigger';
                 } elseif ($forColumn->type == ColumnType::DATEINTERVAL) {
-                    $classes .= ' dateintervalpicker';
+                    $classes .= ' dateintervalpicker-trigger';
                 }
 
                 if (!empty($forColumn->filterDateValue)) {
@@ -583,7 +583,7 @@ class Html implements OutputInterface
                         if (
                             in_array($column->type, [ColumnType::DATE, ColumnType::DATEINTERVAL, ColumnType::DATETIME])
                         ) {
-                            $classes = ' datepicker';
+                            $classes = ' datepicker-trigger';
                         }
 
                         $dataValue = self::inputValue($dataValue);

@@ -5,6 +5,7 @@ namespace System\Modules\Presentation\Models\Tables\Output;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use System\Modules\Presentation\Models\Tables\Enums\ColumnType;
 use System\Modules\Presentation\Models\Tables\Interfaces\OutputInterface;
 use System\Modules\Presentation\Models\Tables\Traits\TableInstance;
 
@@ -25,11 +26,11 @@ class Excel implements OutputInterface
         $rowNr = 1;
         /** @var Column $column */
         foreach ($this->tableInstance->columns as $column) {
-            if (empty($column->exportKey)) {
+            if ($column->exportKey === false || $column->type == ColumnType::ROW_NUMBER) {
                 continue;
             }
 
-            $active_sheet->getCellByColumnAndRow($colNr, $rowNr)->setValue($column->title);
+            $active_sheet->getCell([$colNr, $rowNr])->setValue($column->title);
             $colNr += 1;
         }
 
@@ -37,13 +38,17 @@ class Excel implements OutputInterface
         foreach ($this->tableInstance->getRows() as $rowIndex => $rowItem) {
             $colNr = 1;
             foreach ($this->tableInstance->columns as $column) {
-                if (empty($column->exportKey)) {
+                if ($column->exportKey === false || $column->type == ColumnType::ROW_NUMBER) {
                     continue;
                 }
 
                 $exportKey = $column->exportKey;
+                if ($column->exportKey === null) {
+                    $exportKey = $column->dataKey;
+                }
+
                 $cellValue = is_callable($exportKey) ? $exportKey($column, $rowIndex, $rowItem) : $rowItem[$exportKey];
-                $cell = $active_sheet->getCellByColumnAndRow($colNr, $rowNr);
+                $cell = $active_sheet->getCell([$colNr, $rowNr]);
 
                 switch ($column->type) {
                     case 'int':

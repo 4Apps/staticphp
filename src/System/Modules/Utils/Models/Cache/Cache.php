@@ -84,6 +84,16 @@ class Cache implements CacheInterface
         throw new \Exception('Not implemented');
     }
 
+    public function doesItemExist(string $key): bool
+    {
+        throw new \Exception('Not implemented');
+    }
+
+    public function getTTL(string $key): int
+    {
+        throw new \Exception('Not implemented');
+    }
+
 
     /**
      *  Register cache backend.
@@ -155,9 +165,50 @@ class Cache implements CacheInterface
         }
 
         foreach (self::$backends as $backend) {
-            $backend->removeKey($key);
+            $status = $backend->removeKey($key);
         }
 
-        return true;
+        return $status;
+    }
+
+    /**
+     *  Check if item exists in cache.
+     *
+     * @access public
+     * @static
+     * @return bool
+     */
+    public static function exists(string $key, ?string $name = null): bool
+    {
+        if (!empty($name)) {
+            $backend = self::getBackend($name);
+            return $backend->doesItemExist($key);
+        }
+
+        foreach (self::$backends as $backend) {
+            if ($backend->doesItemExist($key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     *  Get TTL of cached value by key.
+     *
+     * @access public
+     * @static
+     * @return int
+     */
+    public static function getTimeToLive(string $key, ?string $name = null): int
+    {
+        if (!empty($name)) {
+            $backend = self::getBackend($name);
+        } else {
+            $backend = reset(self::$backends);
+        }
+
+        return $backend->getTTL($key);
     }
 }

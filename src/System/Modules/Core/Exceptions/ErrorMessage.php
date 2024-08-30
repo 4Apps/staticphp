@@ -30,7 +30,7 @@ class ErrorMessage extends \Exception
         int $code = 0,
         ?string $description = null,
         ?Throwable $previous = null,
-        int $httpStatusCode = 400,
+        int $httpStatusCode = 200,
         ?string $httpStatusMessage = null,
         ?string $forceOutputType = null,
         bool $showStackTrace = false

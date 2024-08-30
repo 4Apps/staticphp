@@ -17,6 +17,8 @@ class Table implements TableInterface
     public ?array $rows = null;
     public ?array $children = null;
 
+    public null|\Closure $initRow = null;
+
     public ?array $avgRow = null;
     public RowPosition $avgRowPosition = RowPosition::BODY_TOP;
 
@@ -144,6 +146,25 @@ class Table implements TableInterface
     public function setRows(array &$rows): void
     {
         $this->rows = &$rows;
+
+        // Format row values
+        if ($this->initRow !== null) {
+            foreach ($this->rows as $rowIndex => $row) {
+                $this->rows[$rowIndex] = Utils::expandClosure($this->initRow, [$rowIndex, $row]);
+            }
+        }
+
+        // Format column values
+        foreach ($this->columns as $column) {
+            if ($column->initValue !== null) {
+                foreach ($this->rows as $rowIndex => $row) {
+                    $this->rows[$rowIndex][$column->id] = Utils::expandClosure(
+                        $column->initValue,
+                        [$column, $rowIndex, $row]
+                    );
+                }
+            }
+        }
     }
 
     public function getChildren(): array

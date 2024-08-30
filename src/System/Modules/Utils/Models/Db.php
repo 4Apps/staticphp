@@ -220,7 +220,7 @@ class Db
         array $data,
         string $name = 'default',
         string $returning = null
-    ): PDOStatement {
+    ): mixed {
         $keys = [];
         $values = [];
         $params = [];

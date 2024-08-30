@@ -214,7 +214,7 @@ class Sort implements SortInterface
     public function sortDirection(): SortDirection
     {
         if (!empty($this->currentColumn->sortBy) && is_callable($this->currentColumn->sortBy)) {
-            return ''; // Custom sort function
+            return SortDirection::NONE; // Custom sort function
         }
 
         return $this->currentDirection;

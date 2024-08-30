@@ -30,7 +30,7 @@ class Column implements ColumnInterface
     public null|string|\Closure $sortBy = null;
     public bool $sortDefaultColumn = false;
     public SortDirection $sortDefaultDirection = SortDirection::ASC;
-    public SortNulls $sortNulls = SortNulls::FIRST;
+    public SortNulls $sortNulls = SortNulls::LAST;
     public ?string $sortLinkAttribute = null;
 
     // ## Filter
@@ -55,12 +55,13 @@ class Column implements ColumnInterface
     public bool $filterSelectSkipEmptyDefault = false;
     public bool $filterSelectDefaultDisabled = false;
 
-    public FilterType $filterType = FilterType::TEXT;
+    public FilterType|\Closure $filterType = FilterType::TEXT;
     public null|string|\Closure $filterBy = null;
     public null|array|\Closure $filterData = null;
     public bool $filterSqlDate = false;
 
     // ## Data
+    public null|\Closure $initValue = null;
     public null|string|\Closure $idKey = null;
     public null|string|\Closure $dataKey = null;
     public null|string|\Closure $editKey = null;
@@ -70,7 +71,7 @@ class Column implements ColumnInterface
     public string|\Closure $dataColumnAddon = '';
 
     // ## Export
-    public null|string|\Closure $exportKey = null;
+    public bool|null|string|\Closure $exportKey = null;
 
     // ## Presentation
     /**

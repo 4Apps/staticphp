@@ -217,6 +217,19 @@ class SQLFilters implements TableInstanceInterface
             ];
         }
 
+        // TEXT_EXACT
+        if ($filterType === FilterType::TEXT_EXACT) {
+            list($query, $params) = self::valueToQuery($filterBy, $value, '=');
+            return [
+                'query' => $query,
+                'param' => $params,
+                'data'  => [
+                    'title' => $value,
+                    'value' => $value,
+                ]
+            ];
+        }
+
         // INT8
         if ($filterType === FilterType::INT8 || $filterColumn->type === ColumnType::SWITCH) {
             list($query, $params) = self::valueToQuery(
@@ -224,7 +237,7 @@ class SQLFilters implements TableInstanceInterface
                 $value,
                 '=',
                 function ($value) {
-                    return (int) $value;
+                    return (int)$value;
                 }
             );
             return [
@@ -245,7 +258,33 @@ class SQLFilters implements TableInstanceInterface
                 $value,
                 '=',
                 function ($value) {
-                    return (float) $value;
+                    return (float)$value;
+                }
+            );
+            return [
+                'query' => $query,
+                'param' => $params,
+                'data'  => [
+                    'title' => $value,
+                    'value' => $value,
+                ]
+            ];
+        }
+
+        // BOOLEAN
+        if ($filterType === FilterType::BOOLEAN) {
+            list($query, $params) = self::valueToQuery(
+                $filterBy,
+                $value,
+                '=',
+                function ($value) {
+                    if (strtolower($value) === 'false') {
+                        $value = false;
+                    } elseif (strtolower($value) === 'true') {
+                        $value = true;
+                    }
+
+                    return (int)$value;
                 }
             );
             return [

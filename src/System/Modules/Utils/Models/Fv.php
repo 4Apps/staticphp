@@ -34,9 +34,6 @@ namespace System\Modules\Utils\Models;
 
 use System\Modules\Core\Models\Config;
 
-/**
- * Form validation class.
- */
 class Fv
 {
     public $errors = null;
@@ -183,10 +180,10 @@ class Fv
         $tmp = strtr(
             (
                 !empty($this->rules[$name]['errors'][$type])
-                    ? $this->rules[$name]['errors'][$type]
-                    : (
-                        empty($this->default_errors[$type]) ? '' : $this->default_errors[$type]
-                    )
+                ? $this->rules[$name]['errors'][$type]
+                : (
+                    empty($this->default_errors[$type]) ? '' : $this->default_errors[$type]
+                )
             ),
             ['!name' => $this->rules[$name]['title'] ?? $name, '!value' => $value]
         );
@@ -209,7 +206,7 @@ class Fv
     {
         // Check for callable function
         if (is_callable($func)) {
-            $call =& $func;
+            $call = &$func;
         } elseif (method_exists(__CLASS__, $func)) {
             $call = [__CLASS__, $func];
         } elseif (function_exists($func)) {
@@ -225,11 +222,9 @@ class Fv
 
 
 
-    /**
-    *
-    *   FILTER METHODS
-    *
-    **/
+    // ######################
+    // ### Filter methods ###
+    // ######################
 
     public static function setPlain($string, $valid = '')
     {
@@ -305,10 +300,26 @@ class Fv
         $string = preg_replace('#(<[^>]+[\x00-\x20\"\'\/])\ ?(on|xmlns)[^>]*?>#iUu', "$1>", $string);
 
         // remove javascript: and vbscript: protocol
-        $string = preg_replace('#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*j[\x00-\x20]*a[\x00-\x20]*v[\x00-\x20]*a[\x00-\x20]*s[\x00-\x20]*c[\x00-\x20]*r[\x00-\x20]*i[\x00-\x20]*p[\x00-\x20]*t[\x00-\x20]*:#iUu', '$1=$2nojavascript...', $string);
-        $string = preg_replace('#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*v[\x00-\x20]*b[\x00-\x20]*s[\x00-\x20]*c[\x00-\x20]*r[\x00-\x20]*i[\x00-\x20]*p[\x00-\x20]*t[\x00-\x20]*:#iUu', '$1=$2novbscript...', $string);
-        $string = preg_replace('#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*-moz-binding[\x00-\x20]*:#Uu', '$1=$2nomozbinding...', $string);
-        $string = preg_replace('#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*data[\x00-\x20]*:#Uu', '$1=$2nodata...', $string);
+        $string = preg_replace(
+            '#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*j[\x00-\x20]*a[\x00-\x20]*v[\x00-\x20]*a[\x00-\x20]*s[\x00-\x20]*c[\x00-\x20]*r[\x00-\x20]*i[\x00-\x20]*p[\x00-\x20]*t[\x00-\x20]*:#iUu',
+            '$1=$2nojavascript...',
+            $string
+        );
+        $string = preg_replace(
+            '#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*v[\x00-\x20]*b[\x00-\x20]*s[\x00-\x20]*c[\x00-\x20]*r[\x00-\x20]*i[\x00-\x20]*p[\x00-\x20]*t[\x00-\x20]*:#iUu',
+            '$1=$2novbscript...',
+            $string
+        );
+        $string = preg_replace(
+            '#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*-moz-binding[\x00-\x20]*:#Uu',
+            '$1=$2nomozbinding...',
+            $string
+        );
+        $string = preg_replace(
+            '#([a-z]*)[\x00-\x20\/]*=[\x00-\x20\/]*([\`\'\"]*)[\x00-\x20\/]*data[\x00-\x20]*:#Uu',
+            '$1=$2nodata...',
+            $string
+        );
 
         //remove any style attributes, IE allows too much stupid things in them, eg.
         //<span style="width: expression(alert('Ping!'));"></span>
@@ -322,7 +333,11 @@ class Fv
         //remove really unwanted tags
         //do {
         //    $oldstring = $string;
-        $string = preg_replace('#</*(applet|meta|xml|blink|link|style|script|embed|object|iframe|frame|frameset|ilayer|layer|bgsound|title|base)[^>]*(>|<|$)#i', "", $string);
+        $string = preg_replace(
+            '#</*(applet|meta|xml|blink|link|style|script|embed|object|iframe|frame|frameset|ilayer|layer|bgsound|title|base)[^>]*(>|<|$)#i',
+            "",
+            $string
+        );
         //} while ($oldstring != $string);
 
         return $string;
@@ -336,12 +351,77 @@ class Fv
     }
 
 
+    // ##############################
+    // ### Record / Array methods ###
+    // ##############################
 
-    /**
-    *
-    *   VALIDATION METHODS
-    *
-    **/
+    public static function setIntOrNullForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = (empty($record[$key]) && $record[$key] != 0 ? null : (int)$record[$key]);
+        }
+
+        return $record;
+    }
+
+    public static function setIntForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = (int)$record[$key];
+        }
+
+        return $record;
+    }
+
+    public static function setDecOrNullForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = (empty($record[$key]) && $record[$key] != 0 ? null : fixFloat($record[$key]));
+        }
+
+        return $record;
+    }
+
+    public static function setDecForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = fixFloat($record[$key]);
+        }
+
+        return $record;
+    }
+
+    public static function setCleanForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = self::setClean($record[$key]);
+        }
+
+        return $record;
+    }
+
+    public static function setPlainForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = self::setPlain($record[$key]);
+        }
+
+        return $record;
+    }
+
+    public static function setValueToBinaryForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = (empty($record[$key]) ? 0 : 1);
+        }
+
+        return $record;
+    }
+
+
+    // ##########################
+    // ### Validation methods ###
+    // ##########################
 
     public static function required($value)
     {
@@ -354,26 +434,37 @@ class Fv
         return (bool) preg_match("/^[A-Z0-9._%-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/ix", $email);
     }
 
-    public static function date($value, $format = '^(19|20)[0-9]{2}[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$')
-    {
+    public static function date(
+        $value,
+        $format = '^(19|20)[0-9]{2}[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$'
+    ) {
         return self::format($value, $format);
     }
 
     public static function ipv4($value)
     {
-        return (bool) preg_match('/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/', $value);
+        return (bool) preg_match(
+            '/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/',
+            $value
+        );
     }
 
     public static function ipv6($value)
     {
-        return (bool) preg_match('/^(^(([0-9A-F]{1,4}(((:[0-9A-F]{1,4}){5}::[0-9A-F]{1,4})|((:[0-9A-F]{1,4}){4}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,1})|((:[0-9A-F]{1,4}){3}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,2})|((:[0-9A-F]{1,4}){2}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,3})|(:[0-9A-F]{1,4}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,4})|(::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,5})|(:[0-9A-F]{1,4}){7}))$|^(::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,6})$)|^::$)|^((([0-9A-F]{1,4}(((:[0-9A-F]{1,4}){3}::([0-9A-F]{1,4}){1})|((:[0-9A-F]{1,4}){2}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,1})|((:[0-9A-F]{1,4}){1}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,2})|(::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,3})|((:[0-9A-F]{1,4}){0,5})))|([:]{2}[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,4})):|::)((25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{0,2})\.){3}(25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{0,2})$$/', $value);
+        return (bool) preg_match(
+            '/^(^(([0-9A-F]{1,4}(((:[0-9A-F]{1,4}){5}::[0-9A-F]{1,4})|((:[0-9A-F]{1,4}){4}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,1})|((:[0-9A-F]{1,4}){3}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,2})|((:[0-9A-F]{1,4}){2}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,3})|(:[0-9A-F]{1,4}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,4})|(::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,5})|(:[0-9A-F]{1,4}){7}))$|^(::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,6})$)|^::$)|^((([0-9A-F]{1,4}(((:[0-9A-F]{1,4}){3}::([0-9A-F]{1,4}){1})|((:[0-9A-F]{1,4}){2}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,1})|((:[0-9A-F]{1,4}){1}::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,2})|(::[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,3})|((:[0-9A-F]{1,4}){0,5})))|([:]{2}[0-9A-F]{1,4}(:[0-9A-F]{1,4}){0,4})):|::)((25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{0,2})\.){3}(25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{0,2})$$/',
+            $value
+        );
     }
 
     public static function creditCard($value)
     {
         $value = preg_replace('/[^0-9]+/', '', $value);
 
-        return (bool) preg_match('/^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6011[0-9]{12}|3(?:0[0-5]|[68][0-9])[0-9]{11}|3[47][0-9]{13})$/', $value);
+        return (bool) preg_match(
+            '/^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|6011[0-9]{12}|3(?:0[0-5]|[68][0-9])[0-9]{11}|3[47][0-9]{13})$/',
+            $value
+        );
     }
 
     public static function length($value, $from, $to = null)
@@ -453,11 +544,9 @@ class Fv
 
 
 
-    /**
-    *
-    *   FORM HELPERS
-    *
-    **/
+    // ####################
+    // ### Form helpers ###
+    // ####################
 
     public static function isGet()
     {
@@ -525,13 +614,12 @@ class Fv
     }
 
 
-    private function getField($name)
+    private function getField(array|string $name): mixed
     {
         $field = $this->post;
-
         foreach ((array)$name as $item) {
             if (isset($field[$item])) {
-                $field =& $field[$item];
+                $field = &$field[$item];
             } else {
                 return false;
             }
@@ -541,11 +629,9 @@ class Fv
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Register Twig filters
-    |--------------------------------------------------------------------------
-    */
+    // #############################
+    // ### Register Twig filters ###
+    // #############################
 
     public static function registerTwig()
     {

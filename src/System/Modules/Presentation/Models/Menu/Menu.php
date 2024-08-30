@@ -19,7 +19,9 @@ class Menu
     public $preMenuList = '';
     public $postMenuList = '';
 
-    private array $_itemDefaults = [
+    public bool $parentActive = false;
+
+    private array $itemDefaults = [
         'title' => 'No Title',
         'end_icon' => '',
         'before_icon' => '',
@@ -28,11 +30,17 @@ class Menu
         'show' => true,
         'active' => false,
         'nav_class' => '',
+        'link_class' => '',
         'contents' => '',
     ];
 
-    public function __construct()
+    public function __construct($parentActive = false)
     {
+        if (is_callable($parentActive)) {
+            $this->parentActive = $parentActive();
+        } else {
+            $this->parentActive = $parentActive;
+        }
     }
 
     private function prepareUrl($url)
@@ -80,7 +88,7 @@ class Menu
         $menuItems = [];
         foreach ($this->menuList as $item) {
             // Merge defaults
-            $item = array_merge($this->_itemDefaults, $item);
+            $item = array_merge($this->itemDefaults, $item);
 
             // Can we show the item?
             $shouldShow = is_callable($item['show']) ? $item['show']() : $item['show'];
@@ -93,7 +101,7 @@ class Menu
 
             // Custom contents
             if (is_callable($item['contents'])) {
-                $item['contents'] = $item['contents']();
+                $item['contents'] = $item['contents']($item);
             }
 
             // Fix url
@@ -103,6 +111,7 @@ class Menu
         }
 
         $viewData = [
+            'parent_active' => $this->parentActive,
             'pre_menu_content' => $preMenuContent,
             'post_menu_content' => $postMenuContent,
             'menu_items' => $menuItems,
