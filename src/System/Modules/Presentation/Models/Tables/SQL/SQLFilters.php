@@ -4,7 +4,6 @@ namespace System\Modules\Presentation\Models\Tables\Sql;
 
 use System\Modules\Presentation\Models\Tables\Column;
 use System\Modules\Presentation\Models\Tables\Enums\ColumnType;
-use System\Modules\Presentation\Models\Tables\Enums\FilterType;
 use System\Modules\Presentation\Models\Tables\Interfaces\TableInstanceInterface;
 use System\Modules\Presentation\Models\Tables\Traits\TableInstance;
 use System\Modules\Presentation\Models\Tables\Utils;
@@ -113,8 +112,19 @@ class SQLFilters implements TableInstanceInterface
         string $fieldName,
         $value,
         string $compare = '=',
-        ?\Closure $valueFormatter = null
+        ?\Closure $valueFormatter = null,
+        $nullQuery = false
     ): array {
+        // NULL is a special case as there is no value to check
+        if ($nullQuery === true) {
+            if ($compare === '!') {
+                return ["{$fieldName} IS NOT NULL", []];
+            }
+
+            return ["{$fieldName} IS NULL", []];
+        }
+
+        // Check for range
         $regex = '/(.+)(~)(.+)/';
         $matches = [];
         $match = preg_match($regex, $value, $matches);
@@ -201,12 +211,18 @@ class SQLFilters implements TableInstanceInterface
      */
     public static function runFilter(Column $filterColumn, $value): ?array
     {
-        $filterType = $filterColumn->filterType;
+        $columnType = $filterColumn->type;
         $filterBy = $filterColumn->filterBy;
 
+        // NULL Query
+        $nullQuery = false;
+        if ($filterColumn->filterZeroIsNULL === true && ($value === 0 || $value === '0')) {
+            $nullQuery = true;
+        }
+
         // TEXT
-        if ($filterType === FilterType::TEXT) {
-            list($query, $params) = self::valueToQuery($filterBy, $value, '%');
+        if ($columnType === ColumnType::TEXT) {
+            list($query, $params) = self::valueToQuery($filterBy, $value, '%', nullQuery: $nullQuery);
             return [
                 'query' => $query,
                 'param' => $params,
@@ -218,8 +234,8 @@ class SQLFilters implements TableInstanceInterface
         }
 
         // TEXT_EXACT
-        if ($filterType === FilterType::TEXT_EXACT) {
-            list($query, $params) = self::valueToQuery($filterBy, $value, '=');
+        if ($columnType === ColumnType::TEXT_EXACT) {
+            list($query, $params) = self::valueToQuery($filterBy, $value, '=', nullQuery: $nullQuery);
             return [
                 'query' => $query,
                 'param' => $params,
@@ -231,14 +247,16 @@ class SQLFilters implements TableInstanceInterface
         }
 
         // INT8
-        if ($filterType === FilterType::INT8 || $filterColumn->type === ColumnType::SWITCH) {
+        if ($columnType === ColumnType::INT) {
             list($query, $params) = self::valueToQuery(
                 $filterBy,
                 $value,
                 '=',
                 function ($value) {
+                    $value = (int)$value;
                     return (int)$value;
-                }
+                },
+                nullQuery: $nullQuery
             );
             return [
                 'query' => $query,
@@ -251,7 +269,7 @@ class SQLFilters implements TableInstanceInterface
         }
 
         // DECIMAL
-        if ($filterType === FilterType::DECIMAL) {
+        if ($columnType === ColumnType::DECIMAL) {
             $value = str_replace(',', '.', $value);
             list($query, $params) = self::valueToQuery(
                 $filterBy,
@@ -259,7 +277,8 @@ class SQLFilters implements TableInstanceInterface
                 '=',
                 function ($value) {
                     return (float)$value;
-                }
+                },
+                nullQuery: $nullQuery
             );
             return [
                 'query' => $query,
@@ -272,7 +291,7 @@ class SQLFilters implements TableInstanceInterface
         }
 
         // BOOLEAN
-        if ($filterType === FilterType::BOOLEAN) {
+        if ($columnType === ColumnType::BOOLEAN) {
             list($query, $params) = self::valueToQuery(
                 $filterBy,
                 $value,
@@ -285,7 +304,8 @@ class SQLFilters implements TableInstanceInterface
                     }
 
                     return (int)$value;
-                }
+                },
+                nullQuery: $nullQuery
             );
             return [
                 'query' => $query,
@@ -297,47 +317,47 @@ class SQLFilters implements TableInstanceInterface
             ];
         }
 
-        // DATE
-        if ($filterType === FilterType::DATE || $filterType === FilterType::DATE_NATIVE) {
-            $field = $filterBy;
-            $start = preg_replace('/^([0-9]{2})\.([0-9]{2})\.([0-9]{4})$/', '$3-$2-$1', $value);
-            if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2})/', $start)) {
-                $startQ = "{$start} 00:00:00";
-                $endQ = "{$start} 23:59:59";
-                return [
-                    'query' => "{$field} >= ? AND {$field} <= ? ",
-                    'param' => [
-                        $filterType === FilterType::DATE
-                            ? self::strtotime($startQ, $filterColumn->filterSqlDate)
-                            : $startQ,
-                        $filterType === FilterType::DATE
-                            ? self::strtotime($endQ, $filterColumn->filterSqlDate)
-                            : $endQ
-                    ],
-                    'data'  => [
-                        'title' => $value,
-                        'value' => $value,
-                    ]
-                ];
-            }
-
-            return null;
-        }
-
         // DATETIME
-        if ($filterType === FilterType::DATETIME || $filterType === FilterType::DATETIME_NATIVE) {
+        if (
+            $columnType === ColumnType::DATETIME || $columnType === ColumnType::DATETIME_NATIVE
+            || $columnType === ColumnType::DATE || $columnType === ColumnType::DATE_NATIVE
+        ) {
             $field = $filterBy;
             $start = preg_replace(
                 '/^([0-9]{2})\.([0-9]{2})\.([0-9]{4}) ([0-9]{2}):([0-9]{2})$/',
                 '$3-$2-$1 $4:$5',
                 $value
             );
-            if (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2})/', $start)) {
+            $stop = preg_replace(
+                '/.*([0-9]{2})\.([0-9]{2})\.([0-9]{4}) $4:$5$/',
+                '$3-$2-$1 $4:$5',
+                $value
+            );
+            if (
+                preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2})/', $start)
+                && preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2})/', $stop)
+            ) {
+                return [
+                    'query' => "{$field} >= ? AND {$field} <= ? ",
+                    'param' => [
+                        $columnType === ColumnType::DATE || $columnType === ColumnType::DATETIME
+                            ? self::strtotime($start, $filterColumn->filterSqlDate)
+                            : $start,
+                        $columnType === ColumnType::DATE || $columnType === ColumnType::DATETIME
+                            ? self::strtotime($stop, $filterColumn->filterSqlDate)
+                            : $stop
+                    ],
+                    'data'  => [
+                        'title' => $value,
+                        'value' => $value,
+                    ]
+                ];
+            } elseif (preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2})/', $start)) {
                 $startQ = "{$start}";
                 return [
                     'query' => "{$field} = ?",
                     'param' => [
-                        $filterType === FilterType::DATETIME
+                        $columnType === ColumnType::DATETIME
                             ? self::strtotime($startQ, $filterColumn->filterSqlDate)
                             : $startQ
                     ],
@@ -348,12 +368,6 @@ class SQLFilters implements TableInstanceInterface
                 ];
             }
 
-            return null;
-        }
-
-        // DATEINTERVAL
-        if ($filterType === FilterType::DATEINTERVAL || $filterType === FilterType::DATEINTERVAL_NATIVE) {
-            $field = $filterBy;
             $start = preg_replace('/^([0-9]{2})\.([0-9]{2})\.([0-9]{4})?.*/', '$3-$2-$1', $value);
             $stop = preg_replace('/.*([0-9]{2})\.([0-9]{2})\.([0-9]{4})$/', '$3-$2-$1', $value);
             if (
@@ -366,10 +380,10 @@ class SQLFilters implements TableInstanceInterface
                 return [
                     'query' => "{$field} >= ? AND {$field} <= ? ",
                     'param' => [
-                        $filterType === FilterType::DATEINTERVAL
+                        $columnType === ColumnType::DATE || $columnType === ColumnType::DATETIME
                             ? self::strtotime($startQ, $filterColumn->filterSqlDate)
                             : $startQ,
-                        $filterType === FilterType::DATEINTERVAL
+                        $columnType === ColumnType::DATE || $columnType === ColumnType::DATETIME
                             ? self::strtotime($endQ, $filterColumn->filterSqlDate)
                             : $endQ
                     ],
@@ -384,10 +398,10 @@ class SQLFilters implements TableInstanceInterface
                 return [
                     'query' => "{$field} >= ? AND {$field} <= ? ",
                     'param' => [
-                        $filterType === FilterType::DATEINTERVAL
+                        $columnType === ColumnType::DATE || $columnType === ColumnType::DATETIME
                             ? self::strtotime($startQ, $filterColumn->filterSqlDate)
                             : $startQ,
-                        $filterType === FilterType::DATEINTERVAL
+                        $columnType === ColumnType::DATE || $columnType === ColumnType::DATETIME
                             ? self::strtotime($endQ, $filterColumn->filterSqlDate)
                             : $endQ
                     ],
@@ -417,7 +431,7 @@ class SQLFilters implements TableInstanceInterface
             $data = [];
 
             // Run filter methods
-            if (!empty($filterColumn->filterType) && !empty($filterColumn->filterBy)) {
+            if (!empty($filterColumn->filterBy)) {
                 if (is_callable($filterColumn->filterBy)) {
                     $filterBy = $filterColumn->filterBy;
                     $data = $filterBy($value);

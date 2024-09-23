@@ -117,17 +117,15 @@ class Pagination implements PaginationInterface
         switch (true) {
             case ($this->currentPage - $pages_left < 1):
                 $this->pagesFrom = 1;
-                $this->pagesTo = (
-                    $this->currentPage
-                    + ($this->pagesToShow >= $this->pageCount ? $this->pageCount : $this->currentPage)
+                $this->pagesTo = ($this->currentPage
+                    + $this->pagesToShow >= $this->pageCount ? $this->pageCount : $this->currentPage
                     + ($this->pagesToShow - $this->currentPage)
                 );
                 break;
 
             case ($this->currentPage + $pages_right >= $this->pageCount):
-                $this->pagesFrom = (int) (
-                    $this->currentPage
-                    - ($this->pagesToShow <= 0 ? 1 : $this->currentPage)
+                $this->pagesFrom = (int) ($this->currentPage
+                    - $this->pagesToShow <= 0 ? 1 : $this->currentPage
                     - ($this->pagesToShow - ($this->pageCount - $this->currentPage) - 1)
                 );
                 $this->pagesTo = $this->pageCount;

@@ -18,10 +18,10 @@ class SQLTable extends Table
         parent::initData($filterData, $sortData, $page);
 
         if ($filterData !== null) {
-            $this->sqlSort = new SQLSort($this);
+            $this->sqlFilter = new SQLFilters($this);
         }
         if ($sortData !== null) {
-            $this->sqlFilter = new SQLFilters($this);
+            $this->sqlSort = new SQLSort($this);
         }
         if ($page !== null) {
             $this->sqlPagination = new SQLPagination($this);

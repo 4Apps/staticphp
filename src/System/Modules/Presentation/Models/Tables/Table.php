@@ -109,11 +109,11 @@ class Table implements TableInterface
         ?string $sortData = null,
         ?int $page = null
     ): void {
-        if ($sortData !== null) {
-            $this->sort = new Sort($this, "{$this->urlPrefix}{$filterData}/%sort", $sortData);
-        }
         if ($filterData !== null) {
             $this->filter = new Filters($this, "{$this->urlPrefix}%filter/{$sortData}", $filterData);
+        }
+        if ($sortData !== null) {
+            $this->sort = new Sort($this, "{$this->urlPrefix}{$filterData}/%sort", $sortData);
         }
         if ($page !== null) {
             $this->pagination = new Pagination($this, "{$this->urlPrefix}{$filterData}/{$sortData}/%pagination", $page);

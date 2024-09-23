@@ -4,7 +4,8 @@ namespace System\Modules\Presentation\Models\Tables;
 
 use System\Modules\Presentation\Models\Tables\Interfaces\ColumnInterface;
 use System\Modules\Presentation\Models\Tables\Enums\ColumnType;
-use System\Modules\Presentation\Models\Tables\Enums\FilterType;
+use System\Modules\Presentation\Models\Tables\Enums\FieldType;
+use System\Modules\Presentation\Models\Tables\Enums\FormatterType;
 use System\Modules\Presentation\Models\Tables\Enums\SortDirection;
 use System\Modules\Presentation\Models\Tables\Enums\SortNulls;
 
@@ -18,12 +19,6 @@ class Column implements ColumnInterface
 
     // ## Column
     public bool|\Closure $showColumn = true;
-
-    /**
-     * Column id is used for field name.
-     * Currently only work with Switch type.
-     */
-    public bool|\Closure $isEditable = false;
 
     // ## Sort
     public bool $sortEnabled = true;
@@ -40,6 +35,8 @@ class Column implements ColumnInterface
     public ?string $filterDefaultValue = null;
     public ?string $filterDateValue = null;
 
+    public FieldType|\Closure $filterFieldType = FieldType::TEXT;
+
     /**
      * Elements can be string or Closure. If its a Closure, column and value are passed as arguments.
      */
@@ -55,8 +52,8 @@ class Column implements ColumnInterface
     public bool $filterSelectSkipEmptyDefault = false;
     public bool $filterSelectDefaultDisabled = false;
 
-    public FilterType|\Closure $filterType = FilterType::TEXT;
     public null|string|\Closure $filterBy = null;
+    public bool $filterZeroIsNULL = false;
     public null|array|\Closure $filterData = null;
     public bool $filterSqlDate = false;
 
@@ -64,11 +61,19 @@ class Column implements ColumnInterface
     public null|\Closure $initValue = null;
     public null|string|\Closure $idKey = null;
     public null|string|\Closure $dataKey = null;
-    public null|string|\Closure $editKey = null;
+    public FormatterType $dataFormatter = FormatterType::TEXT;
     public array $dataColumnAttributes = [];
     public array $dataColumnClasses = [];
-    public string|\Closure $dataColumnPrefix = '';
-    public string|\Closure $dataColumnAddon = '';
+    public array|\Closure $dataColumnPrefix = [];
+    public array|\Closure $dataColumnAddon = [];
+
+    // ## Edit
+    public bool|\Closure $isEditable = false;
+    public null|string|\Closure $editKey = null;
+    public FieldType $editFieldType = FieldType::TEXT;
+    public ?array $editSelectOptions = null;
+    public bool $editSelectOptionsGroupped = false;
+    public $switchValue = 1;
 
     // ## Export
     public bool|null|string|\Closure $exportKey = null;
