@@ -245,6 +245,28 @@ class Router
     public static ?string $method_url = null;
 
     /**
+     * Url to a contrroller.
+     *
+     * (default value: null)
+     *
+     * @var    string
+     * @access public
+     * @static
+     */
+    public static $controller_url = null;
+
+    /**
+     * Url to a module.
+     *
+     * (default value: null)
+     *
+     * @var    string
+     * @access public
+     * @static
+     */
+    public static $module_url = null;
+
+    /**
      * Request content type.
      *
      * (default value: null)
@@ -499,6 +521,14 @@ class Router
 
         echo "Router::\$method: ";
         print_r(Router::$method);
+        echo "\n";
+
+        echo "Router::\$module_url: ";
+        print_r(Router::$module_url);
+        echo "\n";
+
+        echo "Router::\$controller_url: ";
+        print_r(Router::$controller_url);
         echo "\n";
 
         echo "Router::\$method_url: ";
@@ -922,13 +952,19 @@ class Router
             }
         }
 
-        // Set url to the method
+        // Set urls
         if (self::$file !== null) {
             self::$method_url = self::$module . '/';
             self::$method_url .= str_replace(self::$module . '/Controllers/', '', self::$file);
             self::$method_url .= '/' . self::$method;
             self::$method_url = self::namespaceToUrl(self::$method_url);
         }
+        $methodUrl = self::$method_url;
+        if (substr($methodUrl, -1, 1) == '/') {
+            $methodUrl = substr($methodUrl, 0, -1);
+        }
+        self::$controller_url = dirname("{$methodUrl}safe");
+        self::$module_url = strtolower(preg_replace('/(.)([A-Z])/', '$1-$2', Router::$module));
     }
 
     /**

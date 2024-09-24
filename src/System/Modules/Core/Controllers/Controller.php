@@ -37,6 +37,10 @@ class Controller
         Config::$items['view_data']['controller'] = Router::$controller;
         Config::$items['view_data']['class'] = Router::$class;
         Config::$items['view_data']['method'] = Router::$method;
+
+        Config::$items['view_data']['module_url_rel'] = Router::$module_url;
+        Config::$items['view_data']['controller_url_rel'] = Router::$controller_url;
+        Config::$items['view_data']['method_url_rel'] = Router::$method_url;
     }
 
 
@@ -53,7 +57,7 @@ class Controller
      */
     public static function moduleUrl(): string
     {
-        return Router::siteUrl(strtolower(preg_replace('/(.)([A-Z])/', '$1-$2', Router::$module)));
+        return Router::siteUrl(Router::$module_url);
     }
 
     /**
@@ -69,8 +73,7 @@ class Controller
      */
     public static function controllerUrl(): string
     {
-        $methodUrl = self::methodUrl();
-        return dirname($methodUrl);
+        return Router::siteUrl(Router::$controller_url);
     }
 
     /**

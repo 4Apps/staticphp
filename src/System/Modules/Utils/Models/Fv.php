@@ -355,6 +355,15 @@ class Fv
     // ### Record / Array methods ###
     // ##############################
 
+    public static function setStringOrNullForRecord(array $record, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $record[$key] = ($record[$key] == '' ? null : $record[$key]);
+        }
+
+        return $record;
+    }
+
     public static function setIntOrNullForRecord(array $record, array $keys): array
     {
         foreach ($keys as $key) {
