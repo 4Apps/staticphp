@@ -960,8 +960,10 @@ class Router
             self::$method_url = self::namespaceToUrl(self::$method_url);
         }
         $methodUrl = self::$method_url;
-        if (substr($methodUrl, -1, 1) == '/') {
-            $methodUrl = substr($methodUrl, 0, -1);
+        if ($methodUrl !== null) {
+            if (substr($methodUrl, -1, 1) == '/') {
+                $methodUrl = substr($methodUrl, 0, -1);
+            }
         }
         self::$controller_url = dirname("{$methodUrl}safe");
         self::$module_url = strtolower(preg_replace('/(.)([A-Z])/', '$1-$2', Router::$module));
