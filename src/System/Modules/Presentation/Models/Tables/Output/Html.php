@@ -84,19 +84,19 @@ class Html implements OutputInterface
                 return $this->localeNumberFormat($data, 0);
 
             case FormatterType::DECIMAL:
-                return $this->localeNumberFormat($data) + 0;
+                return $this->localeNumberFormat((float)$data) + 0;
 
             case FormatterType::DECIMAL1:
-                return $this->localeNumberFormat($data, 1);
+                return $this->localeNumberFormat((float)$data, 1);
 
             case FormatterType::DECIMAL2:
-                return $this->localeNumberFormat($data, 2);
+                return $this->localeNumberFormat((float)$data, 2);
 
             case FormatterType::DECIMAL3:
-                return $this->localeNumberFormat($data, 3);
+                return $this->localeNumberFormat((float)$data, 3);
 
             case FormatterType::DECIMAL4:
-                return $this->localeNumberFormat($data, 4);
+                return $this->localeNumberFormat((float)$data, 4);
 
             case FormatterType::BOOLEAN:
                 return $data == 1 ? 'Yes' : 'No';
