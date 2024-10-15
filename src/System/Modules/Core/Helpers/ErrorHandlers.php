@@ -135,7 +135,9 @@ function sp_remove_sensitive_data($data)
             if (is_array($value)) {
                 $data[$key] = sp_remove_sensitive_data($value);
             } elseif (is_string($value)) {
-                $data[$key] = preg_replace('/(password|passwd|pwd|secret|token|api_key|api secret)/i', '***', $value);
+                if (preg_match('/(password|passwd|pwd|secret|token|api_key|api secret)/i', $key)) {
+                    $data[$key] = '***';
+                }
             }
         }
     } elseif (is_string($data)) {
