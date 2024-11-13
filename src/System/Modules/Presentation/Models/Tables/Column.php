@@ -62,10 +62,11 @@ class Column implements ColumnInterface
     public null|string|\Closure $idKey = null;
     public null|string|\Closure $dataKey = null;
     public FormatterType $dataFormatter = FormatterType::TEXT;
-    public array $dataColumnAttributes = [];
-    public array $dataColumnClasses = [];
+    public array|\Closure $dataColumnAttributes = [];
+    public array|\Closure $dataColumnClasses = [];
     public array|\Closure $dataColumnPrefix = [];
     public array|\Closure $dataColumnAddon = [];
+    public null|string|\Closure $dataColumnBage = null;
 
     // ## Edit
     public bool|\Closure $isEditable = false;

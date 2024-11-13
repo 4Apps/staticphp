@@ -599,16 +599,33 @@ class Html implements OutputInterface
                 // Set data column classes and attributes
                 $dataColumnClasses = $this->dataColumnClasses;
                 if (!empty($column->dataColumnClasses)) {
-                    $dataColumnClasses += $column->dataColumnClasses;
+                    if (is_array($column->dataColumnClasses)) {
+                        $dataColumnClasses = array_merge($dataColumnClasses, $column->dataColumnClasses);
+                    } else {
+                        $dataColumnClasses[] = $column->dataColumnClasses;
+                    }
                 }
                 $dataColumnAttributes = $this->dataColumnAttributes;
                 if (!empty($column->dataColumnAttributes)) {
-                    $dataColumnAttributes += $column->dataColumnAttributes;
+                    if (is_array($column->dataColumnAttributes)) {
+                        $dataColumnAttributes = array_merge($dataColumnAttributes, $column->dataColumnAttributes);
+                    } else {
+                        $dataColumnAttributes[] = $column->dataColumnAttributes;
+                    }
                 }
 
                 // Prefix and Addon
-                $prefix = $column->dataColumnPrefix;
-                $addon = $column->dataColumnAddon;
+                $prefix = Utils::ensureArray($column->dataColumnPrefix);
+                $addon = Utils::ensureArray($column->dataColumnAddon);
+
+                if ($column->dataColumnBage !== null) {
+                    $status = Utils::expandClosure(
+                        $column->dataColumnBage,
+                        [$column, $rowIndex, $rowItem, $columnCount]
+                    );
+                    $prefix[] = '<span class="badge bg-' . $status . '">';
+                    $addon[] = '</span>';
+                }
 
                 switch ($column->type) {
                     case ColumnType::ROW_NUMBER:

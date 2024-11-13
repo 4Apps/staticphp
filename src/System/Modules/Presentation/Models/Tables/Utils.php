@@ -4,6 +4,15 @@ namespace System\Modules\Presentation\Models\Tables;
 
 class Utils
 {
+    public static function ensureArray($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        return [$value];
+    }
+
     public static function valueOrClosure($value, ?\Closure $closure = null, array $args = [])
     {
         if (empty($closure)) {
