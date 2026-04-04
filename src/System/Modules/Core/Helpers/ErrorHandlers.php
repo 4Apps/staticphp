@@ -102,23 +102,33 @@ function sp_send_error_email(Throwable $e)
     static $last_error = ['time' => 0];
 
     $e_formatted = sp_format_exception($e, true, true);
+
+    if (time() - $last_error['time'] < 30 && ($last_error['exception'] ?? '') == $e_formatted) {
+        return;
+    }
+
+    $subject = 'PHP ERROR: "' . ($_SERVER['HTTP_HOST'] ?? 'cli') . '"';
+
     $debug_email = Config::$items['logging']['report_email'];
     $email_func = Config::$items['logging']['report_email_func'];
-    if (
-        !empty($debug_email)
-        && is_callable($email_func)
-        && (time() - $last_error['time'] >= 30 || $last_error['exception'] != $e_formatted)
-    ) {
+    if (!empty($debug_email) && is_callable($email_func)) {
         $email_func(
-            $debug_email, // To
-            'PHP ERROR: "' . $_SERVER['HTTP_HOST'] . '"', // Subject
-            $e_formatted, // Message
-            "Content-Type: text/html; charset=utf-8", // Headers
+            $debug_email,
+            $subject,
+            $e_formatted,
+            "Content-Type: text/html; charset=utf-8",
             'error'
         );
-        $last_error['time'] = time();
-        $last_error['exception'] = $e_formatted;
     }
+
+    $webhook = Config::$items['logging']['report_webhook'] ?? null;
+    $webhook_func = Config::$items['logging']['report_webhook_func'] ?? null;
+    if (!empty($webhook) && is_callable($webhook_func)) {
+        $webhook_func($webhook, $subject, $e_formatted, 'error');
+    }
+
+    $last_error['time'] = time();
+    $last_error['exception'] = $e_formatted;
 }
 
 /**

@@ -56,6 +56,7 @@ $config['logging'] = [
     'report_level' => !empty($_ENV['LOGGING_REPORT_LEVEL']) ? $_ENV['LOGGING_REPORT_LEVEL'] : Logger::ERROR,
 
     'report_email' => !empty($_ENV['LOGGING_REPORT_EMAIL']) ? $_ENV['LOGGING_REPORT_EMAIL'] : null,
+    'report_webhook' => !empty($_ENV['LOGGING_REPORT_WEBHOOK']) ? $_ENV['LOGGING_REPORT_WEBHOOK'] : null,
 
 /*
 | Send email function
@@ -82,6 +83,11 @@ $config['logging'] = [
 };
 */
     'report_email_func' => 'mail',
+    'report_webhook_func' => function($endpoint, $subject, $message, $type = 'regular'){
+        if (function_exists('sendIM')) {
+            sendIM($endpoint, $subject, $message, $type);
+        }
+    },
 ];
 
 /*
