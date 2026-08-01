@@ -1,6 +1,8 @@
 @charset "utf-8";
 
-$fa-font-path: '../fonts/font-awesome';
+// No font path override here: fontawesome 7 loads its variables through @use, so an
+// assignment made before an @import never reaches it. Its default is ../webfonts, and
+// npm run copy-fonts puts them exactly there.
 @import '@fortawesome/fontawesome-free/scss/fontawesome.scss';
 @import '@fortawesome/fontawesome-free/scss/regular.scss';
 @import '@fortawesome/fontawesome-free/scss/solid.scss';
