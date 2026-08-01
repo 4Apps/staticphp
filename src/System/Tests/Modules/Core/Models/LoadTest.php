@@ -53,7 +53,6 @@ class LoadTest extends TestCase
         Config::set('view_env_keys', []);
 
         $method = new \ReflectionMethod(Load::class, 'safeEnvForViews');
-        $method->setAccessible(true);
 
         $this->assertEquals([], $method->invoke(null));
     }
@@ -65,7 +64,6 @@ class LoadTest extends TestCase
         Config::set('view_env_keys', ['PUBLIC_VALUE']);
 
         $method = new \ReflectionMethod(Load::class, 'safeEnvForViews');
-        $method->setAccessible(true);
         $test = $method->invoke(null);
 
         $this->assertEquals(['PUBLIC_VALUE' => 'fine'], $test);
@@ -79,7 +77,6 @@ class LoadTest extends TestCase
         Config::set('db', ['pdo' => ['default' => ['password' => 'do not leak']]]);
 
         $method = new \ReflectionMethod(Load::class, 'safeConfigForViews');
-        $method->setAccessible(true);
         $test = $method->invoke(null);
 
         $this->assertArrayNotHasKey('db', $test);
@@ -94,7 +91,6 @@ class LoadTest extends TestCase
         ]);
 
         $method = new \ReflectionMethod(Load::class, 'safeConfigForViews');
-        $method->setAccessible(true);
         $test = $method->invoke(null);
 
         $this->assertEquals('https://example.test', $test['some_service']['endpoint']);
@@ -111,7 +107,6 @@ class LoadTest extends TestCase
         $instance = new \System\Modules\Utils\Models\ExtendedDateTime('2026-08-01 13:45:00');
 
         $formatters = new \ReflectionProperty($instance, 'formatters');
-        $formatters->setAccessible(true);
 
         $this->assertSame([], $formatters->getValue($instance), 'formatters built before use');
 
@@ -127,7 +122,6 @@ class LoadTest extends TestCase
         Config::set('a_plain_setting', 'value');
 
         $method = new \ReflectionMethod(Load::class, 'safeConfigForViews');
-        $method->setAccessible(true);
         $test = $method->invoke(null);
 
         $this->assertEquals('value', $test['a_plain_setting']);

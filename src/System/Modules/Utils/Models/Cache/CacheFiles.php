@@ -9,7 +9,7 @@ use Exception;
  */
 class CacheFiles extends Cache
 {
-    public function __construct(array $config = null)
+    public function __construct(?array $config = null)
     {
         parent::__construct($config);
 

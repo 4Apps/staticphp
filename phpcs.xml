@@ -46,7 +46,8 @@
     <rule ref="PSR1.Classes.ClassDeclaration.MissingNamespace">
         <exclude-pattern>*/i18n.php</exclude-pattern>
     </rule>
-    <rule ref="Squiz.Classes.ValidClassName.NotCamelCaps">
+    <!-- phpcs 4 renamed this code from NotCamelCaps -->
+    <rule ref="Squiz.Classes.ValidClassName.NotPascalCase">
         <exclude-pattern>*/i18n.php</exclude-pattern>
     </rule>
 

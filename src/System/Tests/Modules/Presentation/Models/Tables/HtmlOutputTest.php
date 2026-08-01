@@ -57,7 +57,7 @@ class HtmlOutputTest extends TestCase
         $this->assertNotEquals('', Html::escape("valid\xB1text"));
     }
 
-    private function output(): Html
+    private function html(): Html
     {
         // The TableInstance trait takes the owning table by reference
         $table = new Table([new Column('test')]);
@@ -67,7 +67,7 @@ class HtmlOutputTest extends TestCase
 
     public function testInputValueEscapesTheAttribute()
     {
-        $attribute = $this->output()->inputValue('" onfocus="alert(1)');
+        $attribute = $this->html()->inputValue('" onfocus="alert(1)');
 
         $this->assertStringNotContainsString('" onfocus="', $attribute);
         $this->assertStringContainsString('&quot;', $attribute);
@@ -75,7 +75,7 @@ class HtmlOutputTest extends TestCase
 
     public function testInputValueComparisonStillWorks()
     {
-        $output = $this->output();
+        $output = $this->html();
 
         $this->assertEquals(' selected="selected"', $output->inputValue('a', 'a'));
         $this->assertEquals('', $output->inputValue('a', 'b'));

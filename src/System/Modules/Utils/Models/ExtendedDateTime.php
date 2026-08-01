@@ -33,7 +33,7 @@ class ExtendedDateTime extends \DateTime
 
     public function __construct(
         string $datetime = 'now',
-        string $timeZoneString = null
+        ?string $timeZoneString = null
     ) {
         if (empty($timeZoneString)) {
             $timeZoneString = date_default_timezone_get();

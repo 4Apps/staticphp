@@ -14,7 +14,7 @@ interface CacheInterface
      * @static
      * @return void
      */
-    public function __construct(array $config = null);
+    public function __construct(?array $config = null);
 
     /**
      *  Prefix $key

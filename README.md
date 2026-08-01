@@ -8,7 +8,7 @@ Simple, modular php framework. **README.md needs to be updated.**
 
 ### Requirements
 
--   PHP 8.1+
+-   PHP 8.4+
 -   Twig 3.0+
 
 ### Installation
@@ -67,13 +67,66 @@ _\* Work in progress_
 
 [A simple todo application](http://staticphp-example.gm.lv/) based on sessions. To view the source, checkout the "example" branch.
 
-### PHPUnit
+### Tests and code style
 
-To run phpunit tests, install composer dev dependecies (`composer install --dev`) and then run `./Vendor/bin/phpunit ./src/Application/`
+Everything that gates a merge lives in one script, used identically from the shell, the
+pre-commit hook and CI:
 
-### ApiGen api documentation
+    ./scripts/code_tests.bash          # everything
+    ./scripts/code_tests.bash php      # php only: lint, phpcs, both phpunit suites
+    ./scripts/code_tests.bash js       # js only: tsc, eslint, prettier
 
-To generate api documentation, install composer dev dependecies (`composer install --dev`), run `./Vendor/bin/apigen generate ./ --destination ./src/Application/Public/docs ./src` or `npm run docs` and open http://127.0.0.1:8081/docs/
+It needs the composer dev dependencies (`composer install`) and, for the js half,
+`npm ci`.
+
+### Migrations
+
+Schema changes are plain `.sql` files in `src/Application/Migrations/`, applied in
+filename order and tracked by sha256 in a `migrations` table. Forward only: there are no
+`down` scripts, because a rollback script is written when the schema is theoretical and
+run when it is not.
+
+    ./staticphp migrate new "add users table"   # create an empty migration
+    ./staticphp migrate status                  # what is applied, pending or blocked
+    ./staticphp migrate apply                   # run everything pending
+    ./staticphp migrate apply --dry-run         # list what would run
+    ./staticphp migrate status --check          # exit 1 if anything is pending (for CI)
+
+`migrate` is intercepted in `./staticphp` before the routing bootstrap and handed to
+`System\Modules\Utils\Models\Migrations\Cli`, so it never reaches the router. That is
+deliberate: routing config has no notion of a cli-only route, so a migrations controller
+would also answer over http.
+
+Three states stop the tool and need a decision:
+
+| State     | Meaning                                    | Way out                        |
+| --------- | ------------------------------------------ | ------------------------------ |
+| `DRIFT`   | The file changed after it was applied      | Revert it, or `repair <name>`  |
+| `MISSING` | It was applied but the file is gone        | Restore it, or `forget <name>` |
+| `FAILED`  | It started and never finished              | See below                      |
+
+Adopting a database that already has the schema: `./staticphp migrate baseline` records
+migrations as applied **without running them**.
+
+Postgres, MySQL and SQLite are supported, but they are not equal. Postgres and SQLite have
+transactional DDL, so a failing migration rolls back completely and its tracking row
+commits with it. **MySQL commits DDL implicitly**, so a migration that fails half way
+leaves the earlier statements in place and cannot be undone. There, the tracking row is
+written *before* the migration runs and confirmed after, so a half-applied file shows up as
+`FAILED` and blocks every later migration rather than looking untouched and being silently
+re-run. Keep MySQL migrations to a single statement where you can.
+
+A file whose first line is `-- migrations:no-transaction` runs outside a transaction — for
+`CREATE INDEX CONCURRENTLY` on Postgres, or a SQLite table rebuild, which needs
+`PRAGMA foreign_keys = OFF` and is silently ignored inside one. Postgres refuses such a
+file if it holds more than one statement, since it would wrap a multi-statement send in an
+implicit transaction anyway.
+
+Settings live in `$config['migrations']` (directory, tracking table, which connection);
+`--dir`, `--table` and `--connection` override them per run.
+
+`scripts/migrations_integration.php` exercises the engine against a live Postgres and
+MySQL; the phpunit suite covers it against SQLite and needs no server.
 
 ### Basic Nginx configuration
 

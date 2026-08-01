@@ -526,7 +526,11 @@ class Fv
                 return ($len <= $from);
                 break;
 
-            case (ctype_digit($to)):
+            // Cast before testing: ctype_digit() interprets an int between -128 and 255 as
+            // an ascii codepoint, so a numeric bound like 10 tested chr(10) and fell
+            // through to the "exactly $from" default. Passing null was also deprecated
+            // in PHP 8.4.
+            case ($to !== null && ctype_digit((string) $to)):
                 return ($len >= $from && $len <= $to);
                 break;
 

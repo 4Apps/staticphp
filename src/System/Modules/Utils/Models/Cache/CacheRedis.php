@@ -18,7 +18,7 @@ class CacheRedis extends Cache
      * @static
      * @return void
      */
-    public function __construct(array $config = null)
+    public function __construct(?array $config = null)
     {
         parent::__construct($config);
 

@@ -8,12 +8,29 @@ services:
             context: ./
             dockerfile: ./docker/app/Dockerfile
             target: development
+            args:
+                - GIT_NAME
+                - GIT_EMAIL
+                - LOCAL_USER_ID
+                - LOCAL_GROUP_ID
         env_file:
             - .env
         ports:
             - "5500:5000"
         volumes:
             - ./:/srv/app:cached
+
+    # Testing service
+    testing:
+        image: staticphp_testing
+        container_name: staticphp_testing
+        restart: "no"
+        build:
+            context: ./
+            dockerfile: ./docker/app/Dockerfile
+            target: testing
+        env_file:
+            - .env
 
     # Build service
     build:

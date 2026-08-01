@@ -2,6 +2,7 @@
 
 namespace System\Tests\Modules\Core\Models;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use System\Modules\Core\Controllers\Controller;
 use System\Modules\Core\Exceptions\ErrorMessage;
@@ -28,15 +29,13 @@ class RouterTest extends TestCase
     | survives inside a single segment and "%2e%2e%2f" arrives as "../".
     */
 
-    /**
-     * @dataProvider unsafeSegmentProvider
-     */
+    #[DataProvider('unsafeSegmentProvider')]
     public function testUnsafeSegmentsAreRejected($segment)
     {
         $this->assertFalse(Router::isSafeSegment($segment));
     }
 
-    public function unsafeSegmentProvider(): array
+    public static function unsafeSegmentProvider(): array
     {
         return [
             'encoded traversal' => [rawurldecode('%2e%2e%2f')],
@@ -52,15 +51,13 @@ class RouterTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider safeSegmentProvider
-     */
+    #[DataProvider('safeSegmentProvider')]
     public function testSafeSegmentsAreAccepted(string $segment)
     {
         $this->assertTrue(Router::isSafeSegment($segment));
     }
 
-    public function safeSegmentProvider(): array
+    public static function safeSegmentProvider(): array
     {
         return [
             'simple'      => ['Defaults'],
@@ -120,9 +117,7 @@ class RouterTest extends TestCase
         $this->assertEquals(['id', '='], $method->invoke(null, 'id'));
     }
 
-    /**
-     * @dataProvider nonRoutableMethodProvider
-     */
+    #[DataProvider('nonRoutableMethodProvider')]
     public function testNonRoutableMethods(string $class, string $name)
     {
         $method = new \ReflectionMethod($class, $name);
@@ -130,7 +125,7 @@ class RouterTest extends TestCase
         $this->assertFalse(Router::isRoutableMethod($method));
     }
 
-    public function nonRoutableMethodProvider(): array
+    public static function nonRoutableMethodProvider(): array
     {
         return [
             // Private helpers on a controller must not become endpoints

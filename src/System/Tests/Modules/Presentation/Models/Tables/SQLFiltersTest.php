@@ -2,6 +2,7 @@
 
 namespace System\Tests\Modules\Presentation\Models\Tables;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use System\Modules\Presentation\Models\Tables\SQL\SQLFilters;
 
@@ -118,9 +119,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals('col IS NOT NULL', $sql);
     }
 
-    /**
-     * @dataProvider comparisonPrefixProvider
-     */
+    #[DataProvider('comparisonPrefixProvider')]
     public function testComparisonPrefixesBindTheirValue(string $value, string $expectedSql)
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', $value);
@@ -129,7 +128,7 @@ class SQLFiltersTest extends TestCase
         $this->assertCount(1, $params);
     }
 
-    public function comparisonPrefixProvider(): array
+    public static function comparisonPrefixProvider(): array
     {
         return [
             'equals'       => ['=x', 'col = ?'],

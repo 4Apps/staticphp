@@ -20,7 +20,8 @@
 /src/Application/Public/docs/
 
 .phpunit.result.cache
-.php-cs-fixer.cache
+.phpunit.cache/
+.phpcs.cache
 scripts/.fuse_hidden*
 
 # Python

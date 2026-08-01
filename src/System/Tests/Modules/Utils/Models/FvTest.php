@@ -105,6 +105,25 @@ class FvTest extends TestCase
         $this->assertFalse(Fv::length('ab', 3, '5'));
     }
 
+    /**
+     * ctype_digit() reads an int between -128 and 255 as an ascii codepoint, so an integer
+     * bound used to test chr($to) - never a digit - and fall through to the "exactly
+     * $from" default. Only the string form was covered, which is how it went unnoticed.
+     */
+    public function testLengthRangeFormAcceptsIntegerBounds()
+    {
+        $this->assertTrue(Fv::length('abcd', 3, 5));
+        $this->assertTrue(Fv::length('abcde', 3, 5));
+        $this->assertFalse(Fv::length('ab', 3, 5));
+        $this->assertFalse(Fv::length('abcdef', 3, 5));
+    }
+
+    public function testLengthExactFormWithNoUpperBound()
+    {
+        $this->assertTrue(Fv::length('abc', 3, null));
+        $this->assertFalse(Fv::length('abcd', 3, null));
+    }
+
     public function testIntegerValidator()
     {
         $this->assertTrue(Fv::integer('123'));

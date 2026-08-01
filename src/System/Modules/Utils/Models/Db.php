@@ -399,7 +399,7 @@ class Db
         string $table,
         array $data,
         string $name = 'default',
-        string $returning = null
+        ?string $returning = null
     ): mixed {
         $keys = [];
         $values = [];

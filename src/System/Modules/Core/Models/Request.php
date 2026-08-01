@@ -6,8 +6,8 @@ class Request
 {
     public static function internal(
         string $url,
-        array $post = null,
-        array $query = null,
+        ?array $post = null,
+        ?array $query = null,
         bool $https = false
     ): string {
         // Create command array

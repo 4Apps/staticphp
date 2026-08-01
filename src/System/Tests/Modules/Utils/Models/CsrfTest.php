@@ -2,13 +2,13 @@
 
 namespace System\Tests\Modules\Utils\Models;
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
 use System\Modules\Utils\Models\Csrf;
 
-/**
- * @runTestsInSeparateProcesses
- * @preserveGlobalState disabled
- */
+#[RunTestsInSeparateProcesses]
+#[PreserveGlobalState(false)]
 class CsrfTest extends TestCase
 {
     protected function setUp(): void

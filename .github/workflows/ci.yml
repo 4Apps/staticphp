@@ -17,8 +17,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The floor is composer.json's "php": ">=8.1"; the top is what the image ships
-        php: ['8.1', '8.2', '8.4']
+        # The floor is composer.json's "php": ">=8.4", which is also what the Dockerfile
+        # builds; the second entry keeps us honest against the current release
+        php: ['8.4', '8.5']
 
     steps:
       - uses: actions/checkout@v5
@@ -28,7 +29,9 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           # intl is required by ExtendedDateTime; the rest match docker/app/Dockerfile
-          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql
+          # pdo_sqlite backs the migration engine's integration tests - they run against a
+          # real database in a temp file, so no service container is needed
+          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
           coverage: none
 
       - name: Cache composer packages

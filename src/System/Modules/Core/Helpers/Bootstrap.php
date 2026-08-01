@@ -34,7 +34,9 @@ Config::$items['debug'] = (
 );
 ini_set(
     'error_reporting',
-    (!empty(Config::$items['debug']) ? E_ALL : E_ALL & ~E_DEPRECATED & ~E_STRICT)
+    // E_STRICT was folded into E_ALL long ago and the constant itself is deprecated as of
+    // PHP 8.4, so referencing it here would emit a deprecation of its own
+    (!empty(Config::$items['debug']) ? E_ALL : E_ALL & ~E_DEPRECATED)
 );
 ini_set('display_errors', (int)Config::get('debug'));
 
@@ -58,7 +60,9 @@ if ($autoload_configs !== false) {
 Load::helper(['ErrorHandlers'], 'Core', 'System');
 set_error_handler(
     'sp_error_handler',
-    (!empty(Config::$items['debug']) ? E_ALL : E_ALL & ~E_DEPRECATED & ~E_STRICT)
+    // E_STRICT was folded into E_ALL long ago and the constant itself is deprecated as of
+    // PHP 8.4, so referencing it here would emit a deprecation of its own
+    (!empty(Config::$items['debug']) ? E_ALL : E_ALL & ~E_DEPRECATED)
 );
 set_exception_handler('sp_exception_handler');
 

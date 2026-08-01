@@ -16,7 +16,6 @@ class DbTest extends TestCase
         // buildWhere() reads wrap_column off the connection config, so seed one without
         // opening an actual connection
         $configs = new \ReflectionProperty(Db::class, 'dbConfigs');
-        $configs->setAccessible(true);
         $configs->setValue(null, ['default' => ['wrap_column' => '`']]);
     }
 
@@ -26,7 +25,6 @@ class DbTest extends TestCase
     private function where($where): array
     {
         $method = new \ReflectionMethod(Db::class, 'buildWhere');
-        $method->setAccessible(true);
 
         $params = [];
         $sql = $method->invokeArgs(null, [$where, 'default', &$params]);
@@ -165,7 +163,6 @@ class DbTest extends TestCase
         }
 
         $links = new \ReflectionProperty(Db::class, 'dbLinks');
-        $links->setAccessible(true);
 
         $this->assertArrayNotHasKey('typo_connection', (array) $links->getValue());
     }

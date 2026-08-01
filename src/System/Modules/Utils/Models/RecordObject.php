@@ -82,7 +82,7 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
 
 
     /** =========================================== Instance methods ==================================================== */
-    public function get(string $name, int $from = null)
+    public function get(string $name, ?int $from = null)
     {
         if (($from === null || $from == RecordObject::DATA_RECORD) && isset($this->record[$name])) {
             return $this->record[$name];
