@@ -15,7 +15,7 @@ class WelcomeTest extends TestCase
         $response = Request::internal('');
         $this->assertNotEmpty($response);
         $this->assertFalse(Request::httpErrorInData($response));
-        $this->assertContains('Welcome', $response);
+        $this->assertStringContainsString('Welcome', $response);
     }
 
 
@@ -24,7 +24,7 @@ class WelcomeTest extends TestCase
         $response = Request::internal('defaults/welcome/index');
         $this->assertNotEmpty($response);
         $this->assertFalse(Request::httpErrorInData($response));
-        $this->assertContains('Welcome', $response);
+        $this->assertStringContainsString('Welcome', $response);
     }
 
 

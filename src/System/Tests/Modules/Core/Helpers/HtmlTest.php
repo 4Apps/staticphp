@@ -5,8 +5,10 @@ namespace System\Tests\Modules\Core\Helpers;
 use PHPUnit\Framework\TestCase;
 use System\Modules\Core\Models\Load;
 
-// Load helper here, because it cannot be loaded more than once
-Load::helper(['Html'], 'Core', 'System');
+// Load helper here, because it cannot be loaded more than once.
+// The helper lives in the Presentation module - there is no Core/Helpers/Html.php, so
+// this used to abort the whole suite with a "failed to open stream" fatal.
+Load::helper(['Html'], 'Presentation', 'System');
 
 class HtmlTest extends TestCase
 {
@@ -49,11 +51,28 @@ class HtmlTest extends TestCase
             []
         );
 
-        $this->assertContains('<select', $dropdown);
-        $this->assertContains('class="test"', $dropdown);
-        $this->assertContains('data-param', $dropdown);
-        $this->assertContains('selected', $dropdown);
-        $this->assertContains('Two', $dropdown);
+        $this->assertStringContainsString('<select', $dropdown);
+        $this->assertStringContainsString('class="test"', $dropdown);
+        $this->assertStringContainsString('data-param', $dropdown);
+        $this->assertStringContainsString('selected', $dropdown);
+        $this->assertStringContainsString('Two', $dropdown);
+    }
+
+    public function testDropdownEscapesOptionText()
+    {
+        $dropdown = html_dropdown(['<img src=x onerror=alert(1)>' => '<script>alert(1)</script>']);
+
+        $this->assertStringNotContainsString('<script>', $dropdown);
+        $this->assertStringNotContainsString('<img', $dropdown);
+        $this->assertStringContainsString('&lt;script&gt;', $dropdown);
+    }
+
+    public function testDropdownEscapesOptgroupLabel()
+    {
+        $dropdown = html_dropdown(['" onmouseover="alert(1)' => ['1' => 'One']]);
+
+        $this->assertStringNotContainsString('" onmouseover="', $dropdown);
+        $this->assertStringContainsString('&quot;', $dropdown);
     }
 
     public function testInputValue()
@@ -64,15 +83,17 @@ class HtmlTest extends TestCase
 
     public function testTextareaValue()
     {
+        // Quotes are escaped too now - the old version only handled < and >, which is
+        // not enough for a value that ends up in an attribute
         $test = html_escape_textarea('dfsgf"sdfas"sfsf"> < />');
-        $this->assertEquals('dfsgf"sdfas"sfsf"&gt; &lt; /&gt;', $test);
+        $this->assertEquals('dfsgf&quot;sdfas&quot;sfsf&quot;&gt; &lt; /&gt;', $test);
     }
 
     public function testSelected()
     {
         $current = 1;
         $test = html_set_selected($current, 1);
-        $this->assertContains('selected', $test);
+        $this->assertStringContainsString('selected', $test);
 
         $current = 2;
         $test = html_set_selected($current, 1);
@@ -83,7 +104,7 @@ class HtmlTest extends TestCase
     {
         $current = 1;
         $test = html_set_checked($current, 1);
-        $this->assertContains('checked', $test);
+        $this->assertStringContainsString('checked', $test);
 
         $current = 2;
         $test = html_set_selected($current, 1);

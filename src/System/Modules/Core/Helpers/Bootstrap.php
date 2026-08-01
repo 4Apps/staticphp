@@ -3,6 +3,7 @@
 use System\Modules\Core\Models\Load;
 use System\Modules\Core\Models\Logger;
 use System\Modules\Core\Models\Config;
+use System\Modules\Core\Models\Request;
 use System\Modules\Core\Models\Router;
 use System\Modules\Core\Models\Timers;
 use System\Modules\Utils\Models\ExtendedDateTime;
@@ -12,6 +13,11 @@ $microtime = microtime(true);
 
 // Autoload
 require_once dirname(__FILE__) . '/Autoload.php';
+
+// Build the request superglobals from argv when running under cli, so that
+// Request::internal() actually reaches the url it was given. Must run before the
+// configuration below, which binds references into $_SERVER.
+Request::populateFromCli();
 
 // Load default config file and routing
 Config::load(['Config', 'Routing']);

@@ -592,6 +592,34 @@ class Router
     }
 
     /**
+     * Check whether a controller method may be reached directly from a url.
+     *
+     * ReflectionClass::hasMethod() also matches private and protected methods, and since
+     * PHP 8.1 reflection invokes those without setAccessible() - so without this check
+     * every internal helper on a controller is an endpoint. The lifecycle hooks are
+     * called by loadController() itself and must not be routable either.
+     *
+     * @param \ReflectionMethod $method Method to check
+     *
+     * @access public
+     * @static
+     *
+     * @return bool
+     */
+    public static function isRoutableMethod(\ReflectionMethod $method): bool
+    {
+        if ($method->isPublic() === false || $method->isStatic() === false) {
+            return false;
+        }
+
+        return (in_array(
+            strtolower($method->getName()),
+            ['construct', 'destruct', '__callstatic', '__construct', '__destruct'],
+            true
+        ) === false);
+    }
+
+    /**
      * Check whether a url segment is safe to use as a path and namespace component.
      *
      * @param ?string $segment Segment
@@ -1174,15 +1202,7 @@ class Router
             $routable = false;
             if ($method !== null && $ref->hasMethod($method) === true) {
                 $class_method = $ref->getMethod($method);
-                $routable = (
-                    $class_method->isPublic() === true
-                    && $class_method->isStatic() === true
-                    && in_array(
-                        strtolower($class_method->getName()),
-                        ['construct', 'destruct', '__callstatic', '__construct', '__destruct'],
-                        true
-                    ) === false
-                );
+                $routable = self::isRoutableMethod($class_method);
             }
 
             if ($routable === true) {

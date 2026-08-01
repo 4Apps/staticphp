@@ -93,16 +93,21 @@ class ErrorMessage extends \Exception
             $outputType = $this->forceOutputType;
         }
 
+        // Errors are often rendered after output has already begun, and header() warns
+        // rather than returning quietly in that case - the status line above is already
+        // guarded, so guard the content type the same way
+        $canSendHeaders = (headers_sent() === false);
+
         // Output message
         switch ($outputType) {
             case ErrorMessage::OUTPUT_TYPE_PLAIN:
-                header('Content-Type:text/plain; charset=utf-8');
+                $canSendHeaders && header('Content-Type:text/plain; charset=utf-8');
                 echo "{$this->code} {$this->message}\n\n{$this->description}\n\n{$stackTrace}";
                 break;
 
 
             case ErrorMessage::OUTPUT_TYPE_JSON:
-                header('Content-Type:application/json; charset=utf-8');
+                $canSendHeaders && header('Content-Type:application/json; charset=utf-8');
                 echo json_encode([
                     'msg' => [
                         'code' => $this->code,
@@ -113,7 +118,7 @@ class ErrorMessage extends \Exception
                 break;
 
             case ErrorMessage::OUTPUT_TYPE_XML:
-                header('Content-Type:application/xml; charset=utf-8');
+                $canSendHeaders && header('Content-Type:application/xml; charset=utf-8');
 
                 // Messages routinely carry request data, so every value is escaped
                 $xmlCode = htmlspecialchars((string) $this->code, ENT_XML1 | ENT_QUOTES, 'UTF-8');
@@ -132,7 +137,7 @@ XML;
                 break;
 
             case ErrorMessage::OUTPUT_TYPE_HTML:
-                header('Content-Type:text/html; charset=utf-8');
+                $canSendHeaders && header('Content-Type:text/html; charset=utf-8');
 
                 if ($includeHtmlTemplate === true) {
                     // Newlines are turned into <br> by the template's nl2br filter, which

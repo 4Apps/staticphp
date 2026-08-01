@@ -1,6 +1,6 @@
 <?php
 
-namespace System\Modules\Presentation\Models\Tables\Sql;
+namespace System\Modules\Presentation\Models\Tables\SQL;
 
 use System\Modules\Presentation\Models\Tables\Interfaces\TableInstanceInterface;
 use System\Modules\Presentation\Models\Tables\Traits\TableInstance;

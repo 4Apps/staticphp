@@ -5,8 +5,10 @@ namespace System\Tests\Modules\Core\Helpers;
 use PHPUnit\Framework\TestCase;
 use System\Modules\Core\Models\Load;
 
-// Load helper here, because it cannot be loaded more than once
-Load::helper(['Other'], 'Core', 'System');
+// Load helper here, because it cannot be loaded more than once.
+// The functions under test live in Utils/Helpers/Helpers.php - there is no
+// Core/Helpers/Other.php, so this file could never load.
+Load::helper(['Helpers'], 'Utils', 'System');
 
 class OtherTest extends TestCase
 {
@@ -95,15 +97,32 @@ class OtherTest extends TestCase
     public function testTmpFilename()
     {
         $test = tmpFilename('test_', '_test');
-        $this->assertContains('test_', $test);
-        $this->assertContains('_test', $test);
+        $this->assertStringContainsString('test_', $test);
+        $this->assertStringContainsString('_test', $test);
     }
 
 
-    // @TODO
     public function testGroupArray()
     {
-        // groupArray($array, $keys = [], $unique = false)
+        $rows = [
+            ['id' => 1, 'name' => 'Name 1'],
+            ['id' => 2, 'name' => 'Name 2'],
+            ['id' => 1, 'name' => 'Name 3'],
+        ];
+
+        $test = groupArray($rows, 'id');
+        $this->assertEquals([1, 2], array_keys($test));
+        $this->assertCount(2, $test[1]);
+        $this->assertCount(1, $test[2]);
+        $this->assertEquals($rows[0], $test[1][0]);
+
+        $test = groupArray($rows, ['id', 'name']);
+        $this->assertEquals([$rows[0]], $test[1]['Name 1']);
+        $this->assertEquals([$rows[2]], $test[1]['Name 3']);
+
+        // $unique replaces the list with the row itself
+        $test = groupArray($rows, ['id', 'name'], true);
+        $this->assertEquals($rows[0], $test[1]['Name 1']);
     }
 
 
