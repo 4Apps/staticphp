@@ -177,6 +177,8 @@ class Fv
             $type = 'default';
         }
 
+        // !value is the rejected input. Error messages are routinely echoed straight into
+        // a page, so escape it here rather than relying on every call site to remember.
         $tmp = strtr(
             (
                 !empty($this->rules[$name]['errors'][$type])
@@ -185,7 +187,18 @@ class Fv
                     empty($this->default_errors[$type]) ? '' : $this->default_errors[$type]
                 )
             ),
-            ['!name' => $this->rules[$name]['title'] ?? $name, '!value' => $value]
+            [
+                '!name' => htmlspecialchars(
+                    (string) ($this->rules[$name]['title'] ?? $name),
+                    ENT_QUOTES | ENT_SUBSTITUTE,
+                    'UTF-8'
+                ),
+                '!value' => htmlspecialchars(
+                    (is_array($value) || is_object($value) ? '' : (string) $value),
+                    ENT_QUOTES | ENT_SUBSTITUTE,
+                    'UTF-8'
+                ),
+            ]
         );
     }
 
@@ -274,6 +287,25 @@ class Fv
         return $string;
     }
 
+    /**
+     * Strip markup that could execute script, using a denylist.
+     *
+     * @deprecated A denylist cannot be made complete - new elements, attributes and
+     *             encodings keep appearing, and each one is a bypass until it is added
+     *             here. The two concrete defects this had (a broken alternation and a
+     *             stripping pass that ran once instead of looping) are fixed, but the
+     *             approach stays fundamentally weaker than the alternatives.
+     *
+     *             To render untrusted text, escape it - Twig does this by default, and
+     *             Html::escape()/html_escape() do it in php. To allow a subset of markup,
+     *             use a parser based sanitizer such as symfony/html-sanitizer, which
+     *             works from an allowlist.
+     *
+     * @access public
+     * @static
+     * @param  string $string
+     * @return string
+     */
     public static function xss($string)
     {
         // Decode urls
@@ -285,8 +317,10 @@ class Fv
         // Avoid php tags
         $string = str_ireplace(["\t", '<?php', '<?', '?>'], [' ', '&lt;?php', '&lt;?', '?&gt;'], $string);
 
-        // Clean empty tags
-        $string = preg_replace('#<(?!input¦br¦img¦hr¦\/)[^>]*>\s*<\/[^>]*>#iu', '', $string);
+        // Clean empty tags.
+        // The alternation used U+00A6 (broken bar) instead of "|", which made the negative
+        // lookahead match the literal text "input¦br¦img¦hr" and never the tag names.
+        $string = preg_replace('#<(?!input|br|img|hr|\/)[^>]*>\s*<\/[^>]*>#iu', '', $string);
 
         $string = str_ireplace(["&amp;", "&lt;", "&gt;"], ["&amp;amp;", "&amp;lt;", "&amp;gt;"], $string);
 
@@ -330,15 +364,16 @@ class Fv
         //remove namespaced elements (we do not need them...)
         $string = preg_replace('#</*\w+:\w[^>]*>#i', "", $string);
 
-        //remove really unwanted tags
-        //do {
-        //    $oldstring = $string;
-        $string = preg_replace(
-            '#</*(applet|meta|xml|blink|link|style|script|embed|object|iframe|frame|frameset|ilayer|layer|bgsound|title|base)[^>]*(>|<|$)#i',
-            "",
-            $string
-        );
-        //} while ($oldstring != $string);
+        // Remove really unwanted tags.
+        // This has to loop: a single pass turns "<scr<script>ipt>" into "<script>", so
+        // stripping once reassembles exactly the tag it was meant to remove.
+        $tagPattern = '#</*(applet|meta|xml|blink|link|style|script|embed|object|iframe'
+            . '|frame|frameset|ilayer|layer|bgsound|title|base|svg|math|form|video|audio'
+            . '|details|marquee|template|noscript)[^>]*(>|<|$)#i';
+        do {
+            $oldstring = $string;
+            $string = preg_replace($tagPattern, "", $string);
+        } while ($oldstring !== $string);
 
         return $string;
     }
@@ -440,7 +475,9 @@ class Fv
 
     public static function email($email)
     {
-        return (bool) preg_match("/^[A-Z0-9._%-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/ix", $email);
+        // The previous pattern capped the tld at 4 characters and rejected valid
+        // addresses such as anything on .agency or .technology
+        return (filter_var((string) $email, FILTER_VALIDATE_EMAIL) !== false);
     }
 
     public static function date(
@@ -484,7 +521,8 @@ class Fv
                 return ($len >= $from);
                 break;
 
-            case ($to == '>'):
+            // This tested '>' a second time, so the "at most" form was unreachable
+            case ($to == '<'):
                 return ($len <= $from);
                 break;
 

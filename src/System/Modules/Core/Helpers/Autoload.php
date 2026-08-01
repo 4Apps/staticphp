@@ -29,16 +29,37 @@ spl_autoload_register(
         $classname = str_replace('\\', '/', $classname);
         $classname = ltrim($classname, '/');
 
-        if (is_file(APP_MODULES_PATH . "/{$classname}.php")) {
-            include APP_MODULES_PATH . "/{$classname}.php";
-        } elseif (is_file(APP_PATH . "/{$classname}.php")) {
-            include APP_PATH . "/{$classname}.php";
-        } elseif (is_file(SYS_MODULES_PATH . "/{$classname}.php")) {
-            include SYS_MODULES_PATH . "/{$classname}.php";
-        } elseif (is_file(SYS_PATH . "/{$classname}.php")) {
-            include SYS_PATH . "/{$classname}.php";
-        } elseif (is_file(BASE_PATH . "/{$classname}.php")) {
-            include BASE_PATH . "/{$classname}.php";
+        // Class names reach this point from url segments via the router, so a name
+        // containing ".." would otherwise turn into an include of an arbitrary file.
+        // Every component has to be a plain identifier.
+        foreach (explode('/', $classname) as $part) {
+            if (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $part) !== 1) {
+                return;
+            }
+        }
+
+        $roots = [APP_MODULES_PATH, APP_PATH, SYS_MODULES_PATH, SYS_PATH, BASE_PATH];
+        foreach ($roots as $root) {
+            $file = "{$root}/{$classname}.php";
+            if (is_file($file) === false) {
+                continue;
+            }
+
+            // Defence in depth: confirm the resolved path really is under the root,
+            // in case a symlink inside the tree points somewhere else.
+            $realFile = realpath($file);
+            $realRoot = realpath($root);
+            if ($realFile === false || $realRoot === false) {
+                continue;
+            }
+
+            if (str_starts_with($realFile, rtrim($realRoot, '/') . '/') === false) {
+                continue;
+            }
+
+            include $realFile;
+
+            return;
         }
     },
     true

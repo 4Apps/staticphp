@@ -96,9 +96,13 @@ class Column implements ColumnInterface
     public bool $expandableText = false;
 
     /**
-     * Should html be escaped in a column
+     * Should html be escaped in a column.
+     *
+     * Escaping is on by default. Only turn it off for a column whose data is trusted
+     * markup produced by the application itself - never for anything reaching the table
+     * from a request or from user editable database content.
      */
-    public bool $escapeDataHtml = false;
+    public bool $escapeDataHtml = true;
 
 
     public function __construct($id, ...$settings)

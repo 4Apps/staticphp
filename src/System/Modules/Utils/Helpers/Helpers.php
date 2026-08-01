@@ -216,10 +216,31 @@ function allEmpty($array)
  */
 function tmpFilename($prefix = 'tmp_', $postfix = '')
 {
-    $random = uniqid(rand(), true);
-    $random = str_replace('.', '_', $random);
-    $filename = sys_get_temp_dir() . '/' . $prefix . $random . $postfix;
-    return $filename;
+    // uniqid(rand(), true) is predictable, and returning a name without creating the file
+    // leaves a window for another process to place a symlink there first. tempnam creates
+    // the file atomically with 0600 permissions.
+    $filename = tempnam(sys_get_temp_dir(), $prefix);
+    if ($filename === false) {
+        throw new \RuntimeException('Could not create a temporary file');
+    }
+
+    if (empty($postfix)) {
+        return $filename;
+    }
+
+    // A suffix means a second, still exclusive, create - O_EXCL fails if the name is taken
+    $target = $filename . $postfix;
+    $handle = @fopen($target, 'x');
+    if ($handle === false) {
+        unlink($filename);
+        throw new \RuntimeException("Could not create a temporary file: {$target}");
+    }
+
+    fclose($handle);
+    chmod($target, 0600);
+    unlink($filename);
+
+    return $target;
 }
 
 

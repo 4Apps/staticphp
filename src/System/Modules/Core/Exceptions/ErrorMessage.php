@@ -114,12 +114,19 @@ class ErrorMessage extends \Exception
 
             case ErrorMessage::OUTPUT_TYPE_XML:
                 header('Content-Type:application/xml; charset=utf-8');
+
+                // Messages routinely carry request data, so every value is escaped
+                $xmlCode = htmlspecialchars((string) $this->code, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $xmlMessage = htmlspecialchars((string) $this->message, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $xmlDescription = htmlspecialchars((string) $this->description, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $xmlTrace = htmlspecialchars((string) $stackTrace, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
                 echo <<<XML
 <Msg xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
-    <Code>{$this->code}</Code>
-    <Text>{$this->message}</Text>
-    <Description>{$this->description}</Description>
-    <Trace>{$stackTrace}</Trace>
+    <Code>{$xmlCode}</Code>
+    <Text>{$xmlMessage}</Text>
+    <Description>{$xmlDescription}</Description>
+    <Trace>{$xmlTrace}</Trace>
 </Msg>
 XML;
                 break;
@@ -128,9 +135,8 @@ XML;
                 header('Content-Type:text/html; charset=utf-8');
 
                 if ($includeHtmlTemplate === true) {
-                    if (!empty($this->description)) {
-                        $this->description = str_replace("\n", '<br />', $this->description);
-                    }
+                    // Newlines are turned into <br> by the template's nl2br filter, which
+                    // escapes first - doing it here would require |raw on the other side
                     $data = [
                         'http_status_code' => $this->httpStatusCode,
                         'http_status_message' => $this->httpStatusMessage,
@@ -145,8 +151,17 @@ XML;
                     Config::$items['view_engine']->setCache(false);
                     Load::view(["Error.html"], $data);
                 } else {
-                    $stackTrace = str_replace("\n", '<br />', $stackTrace);
-                    echo "{$this->code} {$this->message}<br /><br />{$this->description}<br /><br />{$stackTrace}";
+                    // Exception messages regularly contain request data, so escape before
+                    // turning newlines into markup
+                    $htmlCode = htmlspecialchars((string) $this->code, ENT_QUOTES, 'UTF-8');
+                    $htmlMessage = htmlspecialchars((string) $this->message, ENT_QUOTES, 'UTF-8');
+                    $htmlDescription = htmlspecialchars((string) $this->description, ENT_QUOTES, 'UTF-8');
+                    $htmlTrace = htmlspecialchars((string) $stackTrace, ENT_QUOTES, 'UTF-8');
+
+                    $htmlDescription = nl2br($htmlDescription);
+                    $htmlTrace = nl2br($htmlTrace);
+
+                    echo "{$htmlCode} {$htmlMessage}<br /><br />{$htmlDescription}<br /><br />{$htmlTrace}";
                 }
                 break;
         }

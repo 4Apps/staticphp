@@ -124,6 +124,27 @@ class SQLFilters implements TableInstanceInterface
             return ["{$fieldName} IS NULL", []];
         }
 
+        // Multi-select filters hand us an array. Treat it as an IN list rather than letting
+        // it reach preg_match() below, which would raise a TypeError on an array argument.
+        if (is_array($value)) {
+            if (empty($value)) {
+                return ['1 = 0', []];
+            }
+
+            $value = array_map(
+                function ($item) use ($valueFormatter) {
+                    return Utils::valueOrClosure($item, $valueFormatter);
+                },
+                array_values($value)
+            );
+
+            $query = "{$fieldName} IN (" . implode(', ', array_fill(0, count($value), '?')) . ')';
+
+            return [$query, $value];
+        }
+
+        $value = (string) $value;
+
         // Check for range
         $regex = '/(.+)(~)(.+)/';
         $matches = [];
@@ -145,18 +166,19 @@ class SQLFilters implements TableInstanceInterface
             $queryValue = substr($value, 1);
         }
 
-        // Format value
+        // Format value.
+        // For the IN comparison every element is formatted individually and then bound as
+        // its own placeholder below - array_map is deliberately given a single array here,
+        // because passing the formatter as a second array pads it with nulls and silently
+        // skips the formatter for every element after the first.
+        $queryValues = [];
         if ($compare == '@') {
-            $queryValue = explode(',', $queryValue);
-            $queryValue = array_map(
-                function ($value, $valueFormatter) {
-                    $value = str_replace('\'', '\'\'', $value);
+            $queryValues = array_map(
+                function ($value) use ($valueFormatter) {
                     return Utils::valueOrClosure($value, $valueFormatter);
                 },
-                $queryValue,
-                [$valueFormatter]
+                explode(',', $queryValue)
             );
-            $queryValue = "'" . implode("','", $queryValue) . "'";
         } else {
             $queryValue = Utils::valueOrClosure($queryValue, $valueFormatter);
         }
@@ -182,7 +204,15 @@ class SQLFilters implements TableInstanceInterface
                 $params = [$queryValue];
                 break;
             case '@':
-                $query = "{$fieldName} IN ({$queryValue})";
+                // An empty list has no valid SQL representation, so collapse it to a
+                // constant with the same truth value instead of emitting "IN ()"
+                if (empty($queryValues)) {
+                    $query = '1 = 0';
+                    break;
+                }
+
+                $query = "{$fieldName} IN (" . implode(', ', array_fill(0, count($queryValues), '?')) . ')';
+                $params = $queryValues;
                 break;
             case '^':
                 $query = "{$fieldName}::TEXT ILIKE ?";

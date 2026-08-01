@@ -100,8 +100,13 @@ class Db
         // Open new connection to DB
         self::$dbLinks[$name] = new PDO($config['string'], $config['username'], $config['password'], $options);
 
-        // Set encoding - mysql only
+        // Set encoding - mysql only. The charset cannot be bound as a parameter, so it is
+        // validated instead of concatenated blindly.
         if (!empty($config['charset']) && self::$dbLinks[$name]->getAttribute(PDO::ATTR_DRIVER_NAME) == 'mysql') {
+            if (preg_match('/^[A-Za-z0-9_]+$/', $config['charset']) !== 1) {
+                throw new \InvalidArgumentException("Invalid charset: \"{$config['charset']}\"");
+            }
+
             self::$dbLinks[$name]->exec('SET NAMES ' . $config['charset'] . ';');
         }
 
@@ -204,7 +209,139 @@ class Db
     }
 
     /**
+     * Operators accepted in a condition key, e.g. ['age >' => 18].
+     *
+     * Conditions are built by string concatenation, so the operator can never come from
+     * untrusted input - anything outside this list is rejected.
+     *
+     * @var string[]
+     * @access private
+     * @static
+     */
+    private static array $allowedOperators = [
+        '=', '!=', '<>', '<', '<=', '>', '>=',
+        'LIKE', 'NOT LIKE', 'ILIKE', 'NOT ILIKE',
+        'IS', 'IS NOT', 'IN', 'NOT IN',
+    ];
+
+    /**
+     * Validate an identifier and wrap it in the connection's quoting character.
+     *
+     * Identifiers cannot be passed as query parameters, so they are concatenated into the
+     * query - which makes this the only thing standing between a caller-supplied column
+     * name and SQL injection. Anything that is not a plain identifier (optionally
+     * table-qualified) is rejected rather than escaped.
+     *
+     * @access private
+     * @static
+     * @param  string $key  Column name, optionally qualified as "table.column"
+     * @param  string $name Connection name
+     * @return string Returns the wrapped identifier
+     */
+    private static function wrapColumn(string $key, string $name): string
+    {
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/', $key) !== 1) {
+            throw new \InvalidArgumentException("Invalid column name: \"{$key}\"");
+        }
+
+        $wrap = self::$dbConfigs[$name]['wrap_column'] ?? '';
+        if (strpos($key, '.') === false) {
+            return $wrap . $key . $wrap;
+        }
+
+        // Wrap each part of a qualified name separately, so "t.col" becomes `t`.`col`
+        [$table, $column] = explode('.', $key, 2);
+
+        return $wrap . $table . $wrap . '.' . $wrap . $column . $wrap;
+    }
+
+    /**
+     * Split a condition key into its column name and comparison operator.
+     *
+     * @access private
+     * @static
+     * @param  string $key Condition key, e.g. "age >" or "name NOT LIKE"
+     * @return array  Returns [column, operator]
+     */
+    private static function splitCondition(string $key): array
+    {
+        $expl = preg_split('/\s+/', trim($key));
+        $column = array_shift($expl);
+        $operator = (empty($expl) ? '=' : strtoupper(implode(' ', $expl)));
+
+        if (in_array($operator, self::$allowedOperators, true) === false) {
+            throw new \InvalidArgumentException("Unsupported comparison operator: \"{$operator}\"");
+        }
+
+        return [$column, $operator];
+    }
+
+    /**
+     * Build a WHERE clause from an associative array of conditions.
+     *
+     * Every value is bound as a query parameter, including array values, which expand to
+     * an IN / NOT IN list of placeholders. Prefixing a key with "!" negates the condition.
+     *
+     * Passing a string instead of an array appends it to the query verbatim. That is a raw
+     * SQL escape hatch with no escaping whatsoever - never build it from request data.
+     *
+     * @access private
+     * @static
+     * @param  mixed  $where  Conditions array, or a raw condition string
+     * @param  string $name   Connection name
+     * @param  array  $params Parameters collected so far, appended to in place
+     * @return string Returns the WHERE clause, or an empty string when there are no conditions
+     */
+    private static function buildWhere(mixed $where, string $name, array &$params): string
+    {
+        if (is_array($where) === false) {
+            return (empty($where) ? '' : "WHERE {$where}");
+        }
+
+        $cond = [];
+        foreach ($where as $key => $value) {
+            [$key, $operator] = self::splitCondition((string) $key);
+
+            $negated = (isset($key[0]) && $key[0] === '!');
+            if ($negated === true) {
+                $key = substr($key, 1);
+            }
+
+            $column = self::wrapColumn($key, $name);
+
+            if (is_array($value)) {
+                $operator = ($negated === true ? 'NOT IN' : 'IN');
+
+                // An empty list has no valid SQL representation, so collapse it to a
+                // constant with the same truth value instead of emitting "IN ()"
+                if (empty($value)) {
+                    $cond[] = ($negated === true ? '1 = 1' : '1 = 0');
+                    continue;
+                }
+
+                $cond[] = $column . " {$operator} (" . implode(', ', array_fill(0, count($value), '?')) . ')';
+                foreach ($value as $item) {
+                    $params[] = $item;
+                }
+
+                continue;
+            }
+
+            // Note: for scalar values "!" only strips the prefix and leaves the operator
+            // alone, matching the behaviour this method replaced. Write ['id !=' => $x]
+            // rather than ['!id' => $x] when you want a negated scalar comparison.
+            $cond[] = $column . " {$operator} ?";
+            $params[] = $value;
+        }
+
+        return (empty($cond) ? '' : 'WHERE ' . implode(' AND ', $cond));
+    }
+
+    /**
      * Make insert sql string and exeute it from associative array of data..
+     *
+     * Prefixing a key with "!" writes its value into the query verbatim instead of binding
+     * it, so that SQL expressions can be used. Never build such a value from request data.
      *
      * @example Db::insert('posts', ['title' => 'Different title', '!active' => 1]);
      *          will make and execute query: INSERT INTO posts (title, active) VALUES ('Different title', 1).
@@ -230,19 +367,11 @@ class Db
                 $value = $value ? 'true' : 'false';
             }
 
-            if ($key[0] == '!') {
-                $keys[] = (
-                    self::$dbConfigs[$name]['wrap_column']
-                    . substr($key, 1)
-                    . self::$dbConfigs[$name]['wrap_column']
-                );
+            if (isset($key[0]) && $key[0] === '!') {
+                $keys[] = self::wrapColumn(substr($key, 1), $name);
                 $values[] = $value;
             } else {
-                $keys[] = (
-                    self::$dbConfigs[$name]['wrap_column']
-                    . $key
-                    . self::$dbConfigs[$name]['wrap_column']
-                );
+                $keys[] = self::wrapColumn((string) $key, $name);
                 $values[] = '?';
                 $params[] = $value;
             }
@@ -282,84 +411,16 @@ class Db
                 $value = $value ? 'true' : 'false';
             }
 
-            if ($key[0] == '!') {
-                $set[] = (
-                    self::$dbConfigs[$name]['wrap_column']
-                    . substr($key, 1)
-                    . self::$dbConfigs[$name]['wrap_column']
-                    . " = {$value}"
-                );
+            if (isset($key[0]) && $key[0] === '!') {
+                $set[] = self::wrapColumn(substr($key, 1), $name) . " = {$value}";
             } else {
-                $set[] = (
-                    self::$dbConfigs[$name]['wrap_column']
-                    . $key
-                    . self::$dbConfigs[$name]['wrap_column']
-                    . ' = ?'
-                );
+                $set[] = self::wrapColumn((string) $key, $name) . ' = ?';
                 $params[] = $value;
             }
         }
 
         // Make WHERE
-        $cond = '';
-        if (\is_array($where)) {
-            $cond = [];
-
-            foreach ($where as $key => $value) {
-                $c = '=';
-                $expl = explode(' ', $key);
-                if (count($expl) > 1) {
-                    $key = $expl[0];
-                    $c = $expl[1];
-                }
-
-                if ($key[0] == '!') {
-                    if (is_array($value)) {
-                        $c = 'NOT IN';
-                        $value = '(' . implode(',', $value) . ')';
-                        $cond[] = (
-                            self::$dbConfigs[$name]['wrap_column']
-                            . substr($key, 1)
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} {$value}"
-                        );
-                    } else {
-                        $cond[] = (
-                            self::$dbConfigs[$name]['wrap_column']
-                            . substr($key, 1)
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} ?"
-                        );
-                        $params[] = $value;
-                    }
-                } else {
-                    if (is_array($value)) {
-                        $c = 'IN';
-                        $value = '(' . implode(',', $value) . ')';
-                        $cond[] = (
-                            self::$dbConfigs[$name]['wrap_column']
-                            . $key
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} {$value}"
-                        );
-                    } else {
-                        $cond[] = (
-                            self::$dbConfigs[$name]['wrap_column']
-                            . $key
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} ?"
-                        );
-                        $params[] = $value;
-                    }
-                }
-            }
-
-            if (!empty($cond)) {
-                $cond = 'WHERE ' . implode(' AND ', $cond);
-            }
-        } else {
-            $cond = "WHERE {$where}";
-        }
+        $cond = self::buildWhere($where, $name, $params);
 
         // Compile SET
         $set = implode(', ', $set);
@@ -382,62 +443,16 @@ class Db
      */
     public static function delete($table, $where, $name = 'default')
     {
-        // Make WHERE
-        $cond = '';
-        $params = [];
-        if (\is_array($where)) {
-            $cond = [];
-
-            foreach ($where as $key => $value) {
-                $c = '=';
-                $expl = explode(' ', $key);
-                if (count($expl) > 1) {
-                    $key = $expl[0];
-                    $c = $expl[1];
-                }
-
-                if ($key[0] == '!') {
-                    if (is_array($value)) {
-                        $c = 'NOT IN';
-                        $value = '(' . implode(',', $value) . ')';
-                        $cond[] = (self::$dbConfigs[$name]['wrap_column']
-                            . substr($key, 1)
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} {$value}"
-                        );
-                    } else {
-                        $cond[] = (self::$dbConfigs[$name]['wrap_column']
-                            . substr($key, 1)
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} ?"
-                        );
-                        $params[] = $value;
-                    }
-                } else {
-                    if (is_array($value)) {
-                        $c = 'IN';
-                        $value = '(' . implode(',', $value) . ')';
-                        $cond[] = (self::$dbConfigs[$name]['wrap_column']
-                            . $key
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} {$value}");
-                    } else {
-                        $cond[] = (self::$dbConfigs[$name]['wrap_column']
-                            . $key
-                            . self::$dbConfigs[$name]['wrap_column']
-                            . " {$c} ?"
-                        );
-                        $params[] = $value;
-                    }
-                }
-            }
-
-            if (!empty($cond)) {
-                $cond = 'WHERE ' . implode(' AND ', $cond);
-            }
-        } else {
-            $cond = "WHERE {$where}";
+        // A missing or empty condition would delete every row in the table
+        if (empty($where)) {
+            throw new \InvalidArgumentException(
+                'Db::delete() requires a condition. Pass an explicit "1 = 1" to truncate a table.'
+            );
         }
+
+        // Make WHERE
+        $params = [];
+        $cond = self::buildWhere($where, $name, $params);
 
         // Run Query
         return self::query("DELETE FROM {$table} {$cond};", $params, $name);
@@ -563,12 +578,14 @@ class Db
             return self::$dbLinks[$name]->lastInsertId($sequence_name);
         } else {
             if (empty($sequence_name)) {
-                $res = self::query('SELECT LAST_INSERT_ID() as id');
+                $res = self::fetch('SELECT LAST_INSERT_ID() as id', [], $name);
             } else {
-                $res = self::query('SELECT currval(?) as id', [$sequence_name]);
+                $res = self::fetch('SELECT currval(?) as id', [$sequence_name], $name);
             }
 
-            return (empty($res['id']) ? null : $res['id']);
+            $res = (array) $res;
+
+            return (empty($res['id']) ? null : (int) $res['id']);
         }
     }
 

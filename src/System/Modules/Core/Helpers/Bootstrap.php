@@ -139,6 +139,11 @@ if (Config::get('disable_twig') !== true) {
         }
     );
     Config::get('view_engine')->addFunction($function);
+
+    // CSRF helpers - csrfToken(), csrfFieldName() and csrfField().
+    // Registering them only makes the token available to templates; validating incoming
+    // requests is the application's job, see System\Modules\Utils\Models\Csrf.
+    \System\Modules\Utils\Models\Csrf::registerTwig();
 }
 
 // Autoload helpers

@@ -59,7 +59,9 @@ class Table implements TableInterface
         array $columns,
         string $urlPrefix = ''
     ) {
-        $this->tableId = md5(time() . mt_rand(1, 100));
+        // time() plus one of a hundred values is guessable; this only needs to be unique
+        // within a page, but a predictable id is a needless hint to anything scripting it
+        $this->tableId = bin2hex(random_bytes(8));
         $this->urlPrefix = $urlPrefix;
 
         $this->setColumns($columns);

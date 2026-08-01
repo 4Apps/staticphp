@@ -16,7 +16,9 @@ class CacheFiles extends Cache
         $path = $this->config['path'];
 
         if (is_dir($path) === false) {
-            mkdir($path, 0777, true);
+            // 0777 leaves the cache world writable; the web user is the only one that
+            // needs to write here
+            mkdir($path, 0770, true);
         }
 
         if (empty($this->config['ext'])) {
@@ -48,7 +50,7 @@ class CacheFiles extends Cache
         }
 
         if (is_dir($subpath) === false) {
-            mkdir($subpath, 0777, true);
+            mkdir($subpath, 0770, true);
         }
 
         return $subpath . $this->prefix($key) . '.' . $this->config['ext'];

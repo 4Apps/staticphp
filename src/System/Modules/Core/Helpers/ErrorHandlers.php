@@ -22,8 +22,9 @@ use System\Modules\Core\Models\Router;
  */
 function sp_error_handler(int $errno, string $errstr, ?string $errfile, ?int $errline, ?array $errcontext = null): void
 {
-    // @ used
-    if (error_reporting() === 0) {
+    // @ used. Since PHP 8 the suppression operator sets a non-zero mask rather than 0,
+    // so comparing against 0 no longer detects it.
+    if ((error_reporting() & $errno) === 0) {
         return;
     }
 
@@ -142,12 +143,15 @@ function sp_remove_sensitive_data($data)
 {
     if (is_array($data)) {
         foreach ($data as $key => $value) {
+            // Check the key first, whatever the value's type. Checking only string values
+            // would let a sensitive key holding an array or an int through untouched.
+            if (preg_match('/(password|passwd|pwd|secret|token|api_key|api secret)/i', (string) $key)) {
+                $data[$key] = '***';
+                continue;
+            }
+
             if (is_array($value)) {
                 $data[$key] = sp_remove_sensitive_data($value);
-            } elseif (is_string($value)) {
-                if (preg_match('/(password|passwd|pwd|secret|token|api_key|api secret)/i', $key)) {
-                    $data[$key] = '***';
-                }
             }
         }
     } elseif (is_string($data)) {

@@ -83,21 +83,21 @@ function html_dropdown(
     // Add empty option
     if (!empty($add_empty)) {
         $value = key($add_empty);
-        $select .= '<option value="' . html_escape_input($value) . '"';
+        $select .= '<option value="' . html_escape($value) . '"';
         if (!empty($addons[$value])) {
             $select .= ' ' . $addons[$value];
         }
         if (is_array($selected) && in_array($value, $selected) || $selected == $value) {
             $select .= ' selected="selected"';
         }
-        $select .= '>' . reset($add_empty) . '</option>';
+        $select .= '>' . html_escape(reset($add_empty)) . '</option>';
     }
 
     // Loop through options
     foreach ($items as $value => $text) {
         // If grouped dropdown
         if (is_array($text)) {
-            $select .= '<optgroup label="' . $value . '">';
+            $select .= '<optgroup label="' . html_escape($value) . '">';
             $select .= html_dropdown($text, $selected, $addons, false, $as_value, $as_text, true);
             $select .= '</optgroup>';
             continue;
@@ -106,7 +106,7 @@ function html_dropdown(
         $value = (empty($as_value) ? $value : $text->{$as_value});
         $text = (empty($as_text) ? $text : $text->{$as_text});
 
-        $select .= '<option value="' . html_escape_input($value) . '"';
+        $select .= '<option value="' . html_escape($value) . '"';
         if (!empty($addons[$value])) {
             $select .= ' ' . $addons[$value];
         }
@@ -114,7 +114,7 @@ function html_dropdown(
         if (is_array($selected) && in_array($value, $selected) || $selected == $value) {
             $select .= ' selected="selected"';
         }
-        $select .= '>' . $text . '</option>';
+        $select .= '>' . html_escape($text) . '</option>';
     }
 
     if (empty($grouped)) {
@@ -124,16 +124,28 @@ function html_dropdown(
     return $select;
 }
 
+// Escape a value for html text or for a quoted attribute
+function html_escape($value)
+{
+    if (is_array($value) || is_object($value)) {
+        $value = '';
+    }
+
+    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
 // Set value for inputs
+// Escaping only the double quote left "<", "'" and "&" through, which is unsafe in every
+// context except a double quoted attribute - html_escape covers all of them.
 function html_escape_input($value)
 {
-    return str_replace('"', '&quot;', $value);
+    return html_escape($value);
 }
 
 // Set value for textareas
 function html_escape_textarea($value)
 {
-    return str_replace(['<', '>'], ['&lt;', '&gt;'], $value);
+    return html_escape($value);
 }
 
 // Set selected for html select element

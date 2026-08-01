@@ -39,6 +39,28 @@ class Html implements OutputInterface
 
 
     /**
+     * Escape a value for use in html text or in a quoted attribute.
+     *
+     * This class builds markup by concatenation, so every value that originates from a
+     * request or from the database has to pass through here. str_replace on a single
+     * character is not enough: it leaves the other delimiters, and "&" intact, which
+     * breaks entities and leaves attribute contexts exploitable.
+     *
+     * @access public
+     * @static
+     * @param  mixed $value
+     * @return string
+     */
+    public static function escape($value): string
+    {
+        if ($value === null || is_bool($value) || is_array($value) || is_object($value)) {
+            $value = (is_array($value) || is_object($value) ? '' : (string) $value);
+        }
+
+        return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /**
      * Returns html input attribute - "value" with its value
      *
      * @access public
@@ -56,8 +78,7 @@ class Html implements OutputInterface
             return '';
         }
 
-        $value = str_replace('"', '&quot;', $value);
-        return " value=\"{$value}\"";
+        return ' value="' . self::escape($value) . '"';
     }
 
     public function localeNumberFormat($number, $decimals = 2)
@@ -349,7 +370,7 @@ class Html implements OutputInterface
                 }
                 $html = '<input type="' . $fieldType . '" class="' . $classes . '"' . $attributes;
                 if (!empty($forColumn->filterTitle)) {
-                    $html .= ' placeholder="' . $forColumn->filterTitle . '" ';
+                    $html .= ' placeholder="' . self::escape($forColumn->filterTitle) . '" ';
                 }
                 $html .= ' ' . $this->filterInputValue($forColumn->id) . '>';
                 break;
@@ -383,12 +404,12 @@ class Html implements OutputInterface
                 $classes .= ' form-select form-select-sm';
                 $html = '<select class="' . $classes . '"' . $attributes . '>';
                 if (count($selectOptions) == 0 && isset($parsedData[$forColumn->id])) {
-                    $html .= '<option value="' . $parsedData[$forColumn->id]['value'] . '">'
-                        . $parsedData[$forColumn->id]['title'] . '</option>';
+                    $html .= '<option value="' . self::escape($parsedData[$forColumn->id]['value']) . '">'
+                        . self::escape($parsedData[$forColumn->id]['title']) . '</option>';
                 } elseif (empty($forColumn->filterSelectSkipEmptyDefault)) {
                     $html .= '<option value=""'
                         . (!empty($forColumn->filterSelectDefaultDisabled) ? ' disabled="disabled"' : '') . '>'
-                        . ($forColumn->filterTitle ?? '')
+                        . self::escape($forColumn->filterTitle ?? '')
                         . '</option>';
                 }
                 if (!empty($selectOptionsGroups) && is_array($selectOptionsGroups)) {
@@ -397,7 +418,7 @@ class Html implements OutputInterface
                             ? $gitem
                             : $gitem[$forColumn->filterSelectOptionsGroupTitleKey]
                         );
-                        $html .= '<optgroup label="' . $final_optgroup_title . '">';
+                        $html .= '<optgroup label="' . self::escape($final_optgroup_title) . '">';
 
                         if (isset($selectOptions[$gkey])) {
                             foreach ($selectOptions[$gkey] as $key => $item) {
@@ -409,9 +430,9 @@ class Html implements OutputInterface
                                     ? $item
                                     : $item[$forColumn->filterSelectOptionsTitleKey]
                                 );
-                                $html .= '<option value="' . $finalId . '"'
+                                $html .= '<option value="' . self::escape($finalId) . '"'
                                     . $this->filterInputValue($forColumn->id, $finalId) . '>'
-                                    . $finalTitle
+                                    . self::escape($finalTitle)
                                     . '</option>';
                             }
                         }
@@ -428,10 +449,10 @@ class Html implements OutputInterface
                             ? $item
                             : $item[$forColumn->filterSelectOptionsTitleKey]
                         );
-                        $html .= '<option value="' . $finalId . '"'
+                        $html .= '<option value="' . self::escape($finalId) . '"'
                             . $this->filterInputValue($forColumn->id, $finalId)
                             . '>'
-                            . $finalTitle
+                            . self::escape($finalTitle)
                             . '</option>';
                     }
                 }
@@ -573,6 +594,10 @@ class Html implements OutputInterface
                     $idValue = $rowItem[$this->tableInstance->idKey];
                 }
 
+                // Comes from row data and is only ever interpolated into html attributes
+                // below, so escape it once here rather than at each of those sites
+                $idValue = self::escape($idValue);
+
                 // Is Editable
                 $isEditable = (Utils::expandClosure($column->isEditable)
                     && Utils::expandClosure($this->tableInstance->isEditable)
@@ -627,6 +652,11 @@ class Html implements OutputInterface
                     $addon[] = '</span>';
                 }
 
+                // Tracks whether the branches below replaced the cell value with generated
+                // markup. Generated markup must not be escaped, raw data must be - without
+                // this distinction one of the two is always wrong.
+                $dataValueIsMarkup = false;
+
                 switch ($column->type) {
                     case ColumnType::ROW_NUMBER:
                         $dataColumnClasses[] = 'text-center col-md-c-1';
@@ -636,6 +666,7 @@ class Html implements OutputInterface
 
                     case ColumnType::SELECT_ALL_CHECKBOX:
                         $dataColumnClasses[] = 'text-center col-md-c-1';
+                        $dataValueIsMarkup = true;
                         $dataValue = <<<EOL
                             <div class="form-check">
                                 <input
@@ -660,7 +691,8 @@ class Html implements OutputInterface
                             $disabled = '';
                         }
 
-                        $switchValue = Utils::expandClosure($column->switchValue);
+                        $switchValue = self::escape(Utils::expandClosure($column->switchValue));
+                        $dataValueIsMarkup = true;
                         $dataValue = <<<EOL
                             <div class="form-check form-switch">
                                 <input
@@ -688,7 +720,8 @@ class Html implements OutputInterface
                             $disabled = '';
                         }
 
-                        $switchValue = Utils::expandClosure($column->switchValue);
+                        $switchValue = self::escape(Utils::expandClosure($column->switchValue));
+                        $dataValueIsMarkup = true;
                         $dataValue = <<<EOL
                             <div class="form-check">
                                 <input
@@ -741,10 +774,13 @@ class Html implements OutputInterface
                                 : $item[$column->filterSelectOptionsTitleKey]
                             );
                             $selected = self::inputValue($editValue, $key);
+                            $finalId = self::escape($finalId);
+                            $finalTitle = self::escape($finalTitle);
                             $selectField .= "<option value=\"{$finalId}\" {$selected}>{$finalTitle}</option>";
                         }
                         $selectField .= '</select>';
                         $dataValue = $selectField;
+                        $dataValueIsMarkup = true;
                         break;
 
                     case FieldType::MULTILINE_TEXT:
@@ -752,7 +788,8 @@ class Html implements OutputInterface
                             break;
                         }
 
-                        $dataValue = str_replace(['<', '>'], ['&lt;', '&gt;'], $editValue);
+                        $dataValue = self::escape($editValue);
+                        $dataValueIsMarkup = true;
                         $dataValue = <<<EOL
                             <textarea
                                 class="form-control input-xs update_field"
@@ -787,6 +824,7 @@ class Html implements OutputInterface
                         }
 
                         $dataValue = self::inputValue($editValue);
+                        $dataValueIsMarkup = true;
                         $dataValue = <<<EOL
                             <input
                                 type="{$fieldType}"
@@ -798,9 +836,12 @@ class Html implements OutputInterface
                         break;
                 }
 
-                // Escape HTML
-                if ($isEditable === false && $column->escapeDataHtml === true) {
-                    $dataValue = str_replace(['<', '>'], ['&lt;', '&gt;'], $dataValue);
+                // Escape HTML.
+                // Only raw values are escaped - the branches above that build their own
+                // markup already escaped the data they interpolated. Set
+                // Column::$escapeDataHtml to false on a column whose data is trusted html.
+                if ($dataValueIsMarkup === false && $column->escapeDataHtml === true) {
+                    $dataValue = self::escape($dataValue);
                 }
 
                 // Expandable Text

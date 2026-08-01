@@ -12,8 +12,8 @@
     <body class="error-page {{ error_class }}">
         <div class="container">
             <h1 class="text-center">{{ http_status_message ? http_status_message : 'Internal Server Error'}}</h1>
-            <p id="message"><strong>{{ code ? code }} {{ message|raw }}</strong></p>
-            <p id="description" class="text-center">{{ description|raw }}</p>
+            <p id="message"><strong>{{ code ? code }} {{ message }}</strong></p>
+            <p id="description" class="text-center">{{ description|nl2br }}</p>
             <pre>{{ stack_trace }}</pre>
         </div>
         <script>

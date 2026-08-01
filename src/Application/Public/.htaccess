@@ -1,3 +1,16 @@
+Options -Indexes
+
+# Never serve dotfiles, .env or backup/editor leftovers as static files
+<FilesMatch "(^\.|\.(env|ini|log|sql|bak|swp|dist|orig|save)$|~$)">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 

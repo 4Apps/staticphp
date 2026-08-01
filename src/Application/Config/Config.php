@@ -105,6 +105,32 @@ $config['client_ip']    = & $_SERVER['REMOTE_ADDR'];
 
 /*
 |--------------------------------------------------------------------------
+| Allowed hosts
+|
+| Hostnames this application answers on. base_url is derived from the Host header,
+| and ends up in redirects, emails and cached pages - listing the expected hosts here
+| stops a client from pointing those links at a site it controls. Include the port when
+| the site is served on a non standard one, e.g. 'localhost:8080'.
+|
+| Leaving this empty only syntax checks the header, which is weaker but keeps existing
+| installs working. Set it in production.
+|--------------------------------------------------------------------------
+*/
+$config['allowed_hosts'] = [];
+
+/*
+|--------------------------------------------------------------------------
+| Template environment values
+|
+| Names of $_ENV entries exposed to templates as "env". The whole environment used to
+| be handed over, which meant every template could read whatever is in .env, including
+| database credentials. List only what the templates actually need.
+|--------------------------------------------------------------------------
+*/
+$config['view_env_keys'] = [];
+
+/*
+|--------------------------------------------------------------------------
 | Uris
 |
 | URL prefixes can be useful when for example identifying ajax requests,

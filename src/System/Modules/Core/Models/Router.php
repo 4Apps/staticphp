@@ -352,9 +352,14 @@ class Router
     ): void {
         switch ($type) {
             case 'js':
-                echo ('<script type="text/javascript"> window.location.href = \''
-                    . ($site_uri === false ? $url : self::siteUrl($url))
-                    . '\'; </script>'
+                // json_encode produces a quoted, escaped JS string literal, so a url
+                // containing a quote cannot break out and inject script
+                echo ('<script type="text/javascript"> window.location.href = '
+                    . json_encode(
+                        ($site_uri === false ? $url : self::siteUrl($url)),
+                        JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                    )
+                    . '; </script>'
                 );
                 break;
 
@@ -552,6 +557,82 @@ class Router
     }
 
     /**
+     * Validate the Host header before it is used to build absolute urls.
+     *
+     * base_url derived from this ends up in redirects, emails and cached pages, so an
+     * unchecked Host header lets a client poison links pointing back at the site. Set
+     * $config['allowed_hosts'] to the hostnames this application answers on; when it is
+     * empty the header is only syntax checked, which keeps existing installs working.
+     *
+     * @param string $host Host header value
+     *
+     * @access public
+     * @static
+     *
+     * @return string
+     */
+    public static function validateHost(string $host): string
+    {
+        $host = strtolower(trim($host));
+        $allowed = array_map('strtolower', (array) Config::get('allowed_hosts', []));
+
+        if (!empty($allowed)) {
+            if (in_array($host, $allowed, true) === false) {
+                throw new RouterException('Untrusted Host header');
+            }
+
+            return $host;
+        }
+
+        if (preg_match('/^[a-z0-9.\-]+(:[0-9]{1,5})?$/', $host) !== 1) {
+            throw new RouterException('Malformed Host header');
+        }
+
+        return $host;
+    }
+
+    /**
+     * Check whether a url segment is safe to use as a path and namespace component.
+     *
+     * @param ?string $segment Segment
+     *
+     * @access public
+     * @static
+     *
+     * @return bool
+     */
+    public static function isSafeSegment(?string $segment): bool
+    {
+        return (is_string($segment) && preg_match('/^[a-zA-Z][a-zA-Z0-9_-]*$/', $segment) === 1);
+    }
+
+    /**
+     * Check whether $path resolves to a location inside $root.
+     *
+     * Used to gate every include whose path is built from request data. Resolves symlinks
+     * and "..", so it holds even when the caller-supplied part is not a plain identifier.
+     *
+     * @param string $path Path to check
+     * @param string $root Directory the path must stay inside of
+     *
+     * @access public
+     * @static
+     *
+     * @return bool
+     */
+    public static function pathIsWithin(string $path, string $root): bool
+    {
+        $realPath = realpath($path);
+        $realRoot = realpath($root);
+
+        if ($realPath === false || $realRoot === false) {
+            return false;
+        }
+
+        return ($realPath === $realRoot || str_starts_with($realPath, rtrim($realRoot, '/') . '/'));
+    }
+
+    /**
      * Ensure $string starts with a slash
      *
      * @param string $string String
@@ -694,15 +775,17 @@ class Router
      */
     public static function populatePostFromJson()
     {
-        $contentType = (isset($_SERVER["CONTENT_TYPE"])
-            ? trim($_SERVER["CONTENT_TYPE"])
-            : (isset($_SERVER["HTTP_ACCEPT"])
-                ? trim($_SERVER["HTTP_ACCEPT"])
-                : ''
-            )
+        $contentType = (isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '');
+
+        // The response format may fall back to Accept, but the request body must not.
+        // "application/json" is not a CORS-safelisted content type, so requiring it here
+        // means a cross origin request carrying a body has to pass a preflight first.
+        // Accept is safelisted, so honouring it would let any site post JSON into $_POST.
+        $acceptType = (isset($_SERVER["HTTP_ACCEPT"]) ? trim($_SERVER["HTTP_ACCEPT"]) : '');
+        self::$request_content_type = RequestContentType::fromString(
+            empty($contentType) ? $acceptType : $contentType
         );
 
-        self::$request_content_type = RequestContentType::fromString($contentType);
         if ($contentType === RequestContentType::JSON->value) {
             $jsonStr = file_get_contents('php://input');
             $jsonArr = json_decode($jsonStr, true);
@@ -742,13 +825,16 @@ class Router
         // Set some variables
         if (empty(self::$base_url) && !empty($_SERVER['HTTP_HOST'])) {
             $https = (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on');
-            self::$domain_url = 'http' . (empty($https) ? '' : 's') . '://' . $_SERVER['HTTP_HOST'];
-            if (preg_match('/:[0-9]+$/', $_SERVER['HTTP_HOST']) === false) {
+            $host = self::validateHost($_SERVER['HTTP_HOST']);
+            self::$domain_url = 'http' . (empty($https) ? '' : 's') . '://' . $host;
+
+            // preg_match returns 0 or 1, never false, so this used to never run
+            if (preg_match('/:[0-9]+$/', $host) === 0 && !empty($_SERVER['SERVER_PORT'])) {
                 if (
                     (empty($https) && $_SERVER['SERVER_PORT'] != 80)
                     || (!empty($https) && $_SERVER['SERVER_PORT'] != 443)
                 ) {
-                    self::$domain_url .= ':' . $_SERVER['SERVER_PORT'];
+                    self::$domain_url .= ':' . (int) $_SERVER['SERVER_PORT'];
                 }
             }
 
@@ -840,6 +926,20 @@ class Router
         // First one in segments is always a module
         $module = array_shift($segments);
 
+        // Every segment ends up in a filesystem path and in a class name, so all of them
+        // have to be plain identifiers - not just the class name checked in the loop below.
+        // Url segments are rawurldecode()d after being split on "/", which means an encoded
+        // slash survives inside a single segment and "%2e%2e%2f" arrives here as "../".
+        if (self::isSafeSegment($module) === false) {
+            return;
+        }
+
+        foreach ($segments as $one) {
+            if (self::isSafeSegment($one) === false) {
+                return;
+            }
+        }
+
         // Controller and method count, this number is needed because of subdirectory controllers and
         // possibility to have and have not method provided
         $count = count($segments);
@@ -849,7 +949,7 @@ class Router
 
         // Look for controller, class and method in segments
         foreach ($segments as $one) {
-            if (preg_match('/^[a-zA-Z][a-zA-Z0-9-_]*$/', $segments[$count - 1]) == false) {
+            if (preg_match('/^[a-zA-Z][a-zA-Z0-9_-]*$/', $segments[$count - 1]) == false) {
                 $count -= 1;
                 continue;
             }
@@ -1026,15 +1126,18 @@ class Router
 
         // Check if module has a bootstrap file
         $bootstrapFile = APP_MODULES_PATH . "/{$module}/Helpers/Bootstrap.php";
-        if (is_file($bootstrapFile)) {
+        if (is_file($bootstrapFile) && self::pathIsWithin($bootstrapFile, APP_MODULES_PATH)) {
             include $bootstrapFile;
         }
 
-        // Check if controllers has a bootstrap file
+        // Check if controllers has a bootstrap file.
+        // The loop walks up towards APP_MODULES_PATH, so each candidate is confirmed to
+        // still resolve inside it - a string length comparison alone would not catch a
+        // path that climbed out via "..".
         $bootstrapPath = APP_MODULES_PATH . '/' . self::$file_path;
         while (strlen($bootstrapPath) > strlen(APP_MODULES_PATH)) {
             $bootstrapFile = "{$bootstrapPath}/_bootstrap.php";
-            if (is_file($bootstrapFile)) {
+            if (is_file($bootstrapFile) && self::pathIsWithin($bootstrapFile, APP_MODULES_PATH)) {
                 include $bootstrapFile;
             }
 
@@ -1042,7 +1145,7 @@ class Router
         }
 
         // Check for $file
-        if (is_file($file)) {
+        if (is_file($file) && self::pathIsWithin($file, APP_MODULES_PATH)) {
             // Namespaces support
             $class = $namespace . '\\' . $class;
 
@@ -1061,10 +1164,28 @@ class Router
                 $response = $ref->getMethod('construct')->invokeArgs(null, [&$class, &$method]);
             }
 
-            // Call requested method
+            // Call requested method.
+            // hasMethod() also matches private and protected methods, and since PHP 8.1
+            // reflection can invoke those without setAccessible() - so the visibility has
+            // to be checked explicitly or every internal helper becomes a routable
+            // endpoint. The lifecycle hooks are called by this method directly and must
+            // not be reachable through the url either.
             $method_response = null;
-            if ($ref->hasMethod($method) === true) {
+            $routable = false;
+            if ($method !== null && $ref->hasMethod($method) === true) {
                 $class_method = $ref->getMethod($method);
+                $routable = (
+                    $class_method->isPublic() === true
+                    && $class_method->isStatic() === true
+                    && in_array(
+                        strtolower($class_method->getName()),
+                        ['construct', 'destruct', '__callstatic', '__construct', '__destruct'],
+                        true
+                    ) === false
+                );
+            }
+
+            if ($routable === true) {
                 $method_response = $class_method->invokeArgs(null, self::$segments);
             } elseif ($ref->hasMethod('__callStatic') === true) {
                 // Call __callStatic

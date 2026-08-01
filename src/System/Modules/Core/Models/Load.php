@@ -13,32 +13,23 @@ class Load
     /**
      * Generate UUID v4.
      *
-     * @author http://php.net/manual/en/function.uniqid.php#94959
+     * Uses random_bytes rather than mt_rand: the Mersenne Twister's state can be
+     * recovered from a modest amount of observed output, which would make every
+     * subsequent value predictable - including the filenames derived from it below.
+     *
      * @access public
      * @static
      * @return string
      */
     public static function uuid4(): string
     {
-        return sprintf(
-            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            // 32 bits for "time_low"
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            // 16 bits for "time_mid"
-            mt_rand(0, 0xffff),
-            // 16 bits for "time_hi_and_version",
-            // four most significant bits holds version number 4
-            mt_rand(0, 0x0fff) | 0x4000,
-            // 16 bits, 8 bits for "clk_seq_hi_res",
-            // 8 bits for "clk_seq_low",
-            // two most significant bits holds zero and one for variant DCE1.1
-            mt_rand(0, 0x3fff) | 0x8000,
-            // 48 bits for "node"
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff)
-        );
+        $data = random_bytes(16);
+
+        // Set version to 0100 and bits 6-7 to 10, per RFC 4122
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
     /**
@@ -51,7 +42,7 @@ class Load
      */
     public static function randomHash(): string
     {
-        return sha1(self::uuid4());
+        return bin2hex(random_bytes(20));
     }
 
     /**
@@ -128,7 +119,7 @@ class Load
 
         // Create directories
         if (!empty($createDirectories) && !is_dir($data['dir'])) {
-            mkdir($data['dir'], 0777, true);
+            mkdir($data['dir'], 0770, true);
         }
 
         return $data;
@@ -322,6 +313,78 @@ class Load
     }
 
     /**
+     * Keys whose values must never be handed to a template.
+     *
+     * @var string
+     * @access private
+     */
+    private const SENSITIVE_KEY_PATTERN = '/(pass|passwd|pwd|secret|token|api_?key|credential|salt|dsn|private)/i';
+
+    /**
+     * Environment values exposed to templates.
+     *
+     * The whole of $_ENV used to be a template global, so with symfony/dotenv loading a
+     * .env file every template could read the database password. Only the keys named in
+     * $config['view_env_keys'] are exposed now.
+     *
+     * @access private
+     * @static
+     * @return array
+     */
+    private static function safeEnvForViews(): array
+    {
+        $allowed = (array) Config::get('view_env_keys', []);
+
+        $env = [];
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $_ENV)) {
+                $env[$key] = $_ENV[$key];
+            }
+        }
+
+        return $env;
+    }
+
+    /**
+     * Configuration exposed to templates, with credentials removed.
+     *
+     * Config::$items holds the database configuration among other things, so handing it
+     * over whole let any template read connection passwords.
+     *
+     * @access private
+     * @static
+     * @param  ?array $config (default: null)
+     * @param  int    $depth  (default: 0)
+     * @return array
+     */
+    private static function safeConfigForViews(?array $config = null, int $depth = 0): array
+    {
+        $config = ($config === null ? Config::$items : $config);
+
+        $safe = [];
+        foreach ($config as $key => $value) {
+            if (preg_match(self::SENSITIVE_KEY_PATTERN, (string) $key)) {
+                continue;
+            }
+
+            // The view engine and loader are objects that reach back into everything else
+            if ($key === 'view_engine' || $key === 'view_loader' || $key === 'db') {
+                continue;
+            }
+
+            if (is_array($value)) {
+                // Guard against a config array that references itself
+                $safe[$key] = ($depth >= 16 ? [] : self::safeConfigForViews($value, $depth + 1));
+                continue;
+            }
+
+            $safe[$key] = $value;
+        }
+
+        return $safe;
+    }
+
+    /**
      * Render a view or multiple views.
      *
      * Render views from current application's view directory (APP_PATH/views).
@@ -348,9 +411,14 @@ class Load
                 return false;
             }
 
-            $config = Config::$items;
+            $config = self::safeConfigForViews();
             foreach ((array) $files as $key => $file) {
-                require APP_MODULES_PATH . "/{$file}";
+                $path = APP_MODULES_PATH . "/{$file}";
+                if (Router::pathIsWithin($path, APP_MODULES_PATH) === false) {
+                    throw new \RuntimeException("View outside of the modules directory: \"{$file}\"");
+                }
+
+                require $path;
             }
 
             return true;
@@ -358,10 +426,10 @@ class Load
 
         // Add default view data
         if (empty($globalsAdded)) {
-            Config::$items['view_engine']->addGlobal('env', $_ENV);
+            Config::$items['view_engine']->addGlobal('env', self::safeEnvForViews());
             Config::$items['view_engine']->addGlobal('now', Config::$items['now']);
             Config::$items['view_engine']->addGlobal('date_time', Config::$items['date_time']);
-            Config::$items['view_engine']->addGlobal('config', Config::$items);
+            Config::$items['view_engine']->addGlobal('config', self::safeConfigForViews());
             Config::$items['view_engine']->addGlobal('session', $_SESSION ?? []);
             Config::$items['view_engine']->addGlobal('cookie', $_COOKIE ?? []);
             Config::$items['view_engine']->addGlobal('base_url', Router::$base_url);
