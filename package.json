@@ -14,52 +14,55 @@
     "url": "https://github.com/gintsmurans/staticphp/issues"
   },
   "homepage": "https://github.com/gintsmurans/staticphp",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "npm run composer:init && npm run mkdirs && npm run copy-fonts",
+    "test": "./scripts/code_tests.bash",
     "start": "php -S 0.0.0.0:8081 -t src/Application/Public",
+    "setup": "npm run composer:init && npm run mkdirs && npm run copy-fonts",
     "composer:init": "[ -f composer.lock ] || composer install",
     "mkdirs": "mkdir -p src/Application/Public/assets/dist/fonts src/Application/Public/assets/dist/css src/Application/Public/assets/dist/js",
     "copy-fonts": "mkdir -p src/Application/Public/assets/dist/fonts/font-awesome; cp -r node_modules/\\@fortawesome/fontawesome-free/webfonts/* src/Application/Public/assets/dist/fonts/font-awesome/;",
+    "build:info": "./scripts/build_info.bash",
     "build": "npm run copy-fonts && npm run css:build && npm run js:build",
     "build:dev": "npm run copy-fonts && npm run css:build && npm run js:build:dev",
-    "js:build": "tsc -noEmit && webpack --mode production --bail",
-    "js:build:dev": "tsc -noEmit && webpack --mode development",
-    "js:watch": "webpack --watch --mode development",
+    "js:build": "npm run typecheck && rspack build --mode production",
+    "js:build:dev": "npm run typecheck && rspack build --mode development",
+    "js:watch": "rspack build --watch --mode development",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/Application/Public/assets/src",
+    "lint:fix": "eslint --fix src/Application/Public/assets/src",
+    "format": "prettier --write \"src/Application/Public/assets/src/**/*.{ts,js,scss}\"",
+    "format:check": "prettier --check \"src/Application/Public/assets/src/**/*.{ts,js,scss}\"",
     "css:build": "sass --style=compressed --load-path=node_modules --source-map-urls=relative src/Application/Public/assets/src/index.scss src/Application/Public/assets/dist/css/index.css",
     "css:watch": "./scripts/watch_files_dev.bash css",
-    "docs": "./vendor/bin/apigen generate --destination src/Application/Public/docs src/Application/ src/System/",
     "phpstan": "./vendor/bin/phpstan analyse --level 4 --autoload-file=./src/System/Modules/Core/Helpers/Autoload.php ./src/Application ./src/System"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.5.1",
+    "@fortawesome/fontawesome-free": "^7.3.1",
     "@popperjs/core": "^2.11.8",
-    "bootstrap": "^5.3.2",
-    "core-js": "^3.34.0"
+    "bootstrap": "^5.3.8",
+    "core-js": "^3.49.0"
   },
   "browserslist": [
     "defaults",
     "not ie 11"
   ],
   "devDependencies": {
-    "@types/bootstrap": "^5.2.10",
-    "@types/jquery": "^3.5.29",
-    "@typescript-eslint/eslint-plugin": "^6.14.0",
-    "@typescript-eslint/parser": "^6.14.0",
-    "esbuild-loader": "^4.0.2",
-    "eslint": "^8.55.0",
-    "eslint-import-resolver-alias": "^1.1.2",
-    "eslint-import-resolver-typescript": "^3.6.1",
-    "eslint-import-resolver-webpack": "^0.13.8",
-    "eslint-plugin-compat": "^4.2.0",
-    "eslint-plugin-import": "^2.29.0",
-    "eslint-webpack-plugin": "^4.0.1",
-    "sass": "^1.69.5",
-    "strip-trailing-space-loader": "^1.1.0",
-    "terser": "^5.26.0",
-    "terser-webpack-plugin": "^5.3.9",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4",
-    "webpack-plugin-replace": "^1.2.0"
+    "@eslint/js": "^10.0.1",
+    "@rspack/cli": "^2.1.7",
+    "@rspack/core": "^2.1.7",
+    "@types/bootstrap": "^5.2.11",
+    "dotenv": "^17.4.2",
+    "eslint": "^10.8.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-compat": "^7.0.2",
+    "eslint-plugin-import-x": "^4.17.1",
+    "globals": "^17.8.0",
+    "prettier": "^3.9.6",
+    "sass": "^1.102.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.65.0"
   }
 }

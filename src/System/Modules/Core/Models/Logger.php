@@ -57,17 +57,14 @@ class Logger
      */
     public static function contains(string $errorLevel1, string $errorLevel2): bool
     {
-        if (empty(self::ERROR_LEVELS[$errorLevel1])) {
-            return null;
+        // These returned null against a `: bool` signature, so a mistyped log level in
+        // config raised a TypeError from inside the error handler rather than simply not
+        // logging. An unknown level means "do not log at this level".
+        if (empty(self::ERROR_LEVELS[$errorLevel1]) || empty(self::ERROR_LEVELS[$errorLevel2])) {
+            return false;
         }
-        $errorLevelInt1 = self::ERROR_LEVELS[$errorLevel1];
 
-        if (empty(self::ERROR_LEVELS[$errorLevel2])) {
-            return null;
-        }
-        $errorLevelInt2 = self::ERROR_LEVELS[$errorLevel2];
-
-        return ($errorLevelInt1 <= $errorLevelInt2);
+        return (self::ERROR_LEVELS[$errorLevel1] <= self::ERROR_LEVELS[$errorLevel2]);
     }
 
     /*

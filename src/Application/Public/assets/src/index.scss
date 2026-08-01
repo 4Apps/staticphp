@@ -1,10 +1,10 @@
 @charset "utf-8";
 
-$fa-font-path: "../fonts/font-awesome";
-@import "@fortawesome/fontawesome-free/scss/fontawesome.scss";
-@import "@fortawesome/fontawesome-free/scss/regular.scss";
-@import "@fortawesome/fontawesome-free/scss/solid.scss";
+$fa-font-path: '../fonts/font-awesome';
+@import '@fortawesome/fontawesome-free/scss/fontawesome.scss';
+@import '@fortawesome/fontawesome-free/scss/regular.scss';
+@import '@fortawesome/fontawesome-free/scss/solid.scss';
 
-@import "bootstrap/scss/bootstrap.scss";
+@import 'bootstrap/scss/bootstrap.scss';
 
-@import "base/scss/theme.scss";
+@import 'base/scss/theme.scss';

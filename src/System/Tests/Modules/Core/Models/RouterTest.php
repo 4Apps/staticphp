@@ -4,6 +4,10 @@ namespace System\Tests\Modules\Core\Models;
 
 use PHPUnit\Framework\TestCase;
 use System\Modules\Core\Controllers\Controller;
+use System\Modules\Core\Exceptions\ErrorMessage;
+use System\Modules\Core\Exceptions\ErrorMessage\BadRequest;
+use System\Modules\Core\Exceptions\ErrorMessage\Forbidden;
+use System\Modules\Core\Exceptions\ErrorMessage\NotFound;
 use System\Modules\Core\Exceptions\RouterException;
 use System\Modules\Core\Models\Config;
 use System\Modules\Core\Models\Router;
@@ -178,13 +182,26 @@ class RouterTest extends TestCase
     {
         Config::set('allowed_hosts', ['example.com']);
 
-        $this->expectException(RouterException::class);
+        // A bad Host header is the client's fault, so it must not land in the 500 path
+        $this->expectException(BadRequest::class);
         Router::validateHost('evil.test');
+    }
+
+    public function testUnlistedHostCarriesA400()
+    {
+        Config::set('allowed_hosts', ['example.com']);
+
+        try {
+            Router::validateHost('evil.test');
+            $this->fail('expected a BadRequest');
+        } catch (BadRequest $e) {
+            $this->assertEquals(400, $e->httpStatusCode);
+        }
     }
 
     public function testMalformedHostIsRejectedWithoutAnAllowlist()
     {
-        $this->expectException(RouterException::class);
+        $this->expectException(BadRequest::class);
         Router::validateHost("example.com\r\nX-Injected: 1");
     }
 
@@ -196,6 +213,22 @@ class RouterTest extends TestCase
     /*
     | Helpers
     */
+
+    public function testFrameworkClassesAreInComposerClassmap()
+    {
+        // Without an "autoload" section the framework's own classes were invisible to
+        // composer, so every one of them fell through to the hand-rolled prober and paid
+        // four failed stats before the hit. A failed stat costs ~50x a successful one.
+        $classmapFile = BASE_PATH . '../vendor/composer/autoload_classmap.php';
+        if (is_file($classmapFile) === false) {
+            $this->markTestSkipped('composer autoload not dumped');
+        }
+
+        $classmap = require $classmapFile;
+
+        $this->assertArrayHasKey(Router::class, $classmap);
+        $this->assertArrayHasKey(ErrorMessage::class, $classmap);
+    }
 
     public function testEnsureStartsWithSlash()
     {

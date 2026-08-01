@@ -83,7 +83,7 @@ $config['logging'] = [
 };
 */
     'report_email_func' => 'mail',
-    'report_webhook_func' => function($endpoint, $subject, $message, $type = 'regular'){
+    'report_webhook_func' => function ($endpoint, $subject, $message, $type = 'regular') {
         if (function_exists('sendIM')) {
             sendIM($endpoint, $subject, $message, $type);
         }

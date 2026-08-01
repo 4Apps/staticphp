@@ -103,6 +103,25 @@ class LoadTest extends TestCase
         $this->assertEquals('fine', $test['some_service']['nested']['public']);
     }
 
+    public function testExtendedDateTimeBuildsItsFormattersLazily()
+    {
+        // The constructor used to build four IntlDateFormatters eagerly, which cost ~830us
+        // per instance and ran on every request via the bootstrap. Formatting still has to
+        // work; it just must not happen until asked for.
+        $instance = new \System\Modules\Utils\Models\ExtendedDateTime('2026-08-01 13:45:00');
+
+        $formatters = new \ReflectionProperty($instance, 'formatters');
+        $formatters->setAccessible(true);
+
+        $this->assertSame([], $formatters->getValue($instance), 'formatters built before use');
+
+        $this->assertNotEmpty($instance->formatDate());
+        $this->assertCount(1, $formatters->getValue($instance), 'more than the needed formatter was built');
+
+        $this->assertNotEmpty($instance->formatTime());
+        $this->assertCount(2, $formatters->getValue($instance));
+    }
+
     public function testOrdinaryConfigStillReachesTemplates()
     {
         Config::set('a_plain_setting', 'value');

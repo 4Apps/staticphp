@@ -91,26 +91,72 @@ class Db
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_CASE => PDO::CASE_NATURAL,
             PDO::ATTR_DEFAULT_FETCH_MODE => (!empty($config['fetch_mode_objects']) ? PDO::FETCH_OBJ : PDO::FETCH_ASSOC),
-
         ];
+
         if (isset($config['persistent'])) {
             $options[PDO::ATTR_PERSISTENT] = $config['persistent'];
         }
 
-        // Open new connection to DB
-        self::$dbLinks[$name] = new PDO($config['string'], $config['username'], $config['password'], $options);
+        // Emulated prepares quote parameters client-side rather than sending them
+        // separately, and return every column as a string. The driver defaults disagree
+        // (mysql emulates, pgsql does not), so set it explicitly instead of inheriting
+        // whichever the driver happens to pick.
+        $options[PDO::ATTR_EMULATE_PREPARES] = (bool) ($config['emulate_prepares'] ?? false);
 
-        // Set encoding - mysql only. The charset cannot be bound as a parameter, so it is
-        // validated instead of concatenated blindly.
-        if (!empty($config['charset']) && self::$dbLinks[$name]->getAttribute(PDO::ATTR_DRIVER_NAME) == 'mysql') {
+        $dsn = $config['string'];
+
+        // The charset belongs in the DSN. Setting it afterwards with "SET NAMES" changes
+        // the connection but not what PDO believes the connection is, so with emulated
+        // prepares its client-side quoting keeps using the DSN charset - which is the
+        // multi-byte injection hole. It is also one round trip on every connect, and with
+        // persistent connections that lands on requests that reuse a pooled handle.
+        if (!empty($config['charset'])) {
             if (preg_match('/^[A-Za-z0-9_]+$/', $config['charset']) !== 1) {
                 throw new \InvalidArgumentException("Invalid charset: \"{$config['charset']}\"");
             }
 
-            self::$dbLinks[$name]->exec('SET NAMES ' . $config['charset'] . ';');
+            if (str_starts_with($dsn, 'mysql:') && stripos($dsn, 'charset=') === false) {
+                $dsn .= (str_ends_with($dsn, ';') ? '' : ';') . 'charset=' . $config['charset'];
+            }
         }
 
+        // Open new connection to DB
+        self::$dbLinks[$name] = new PDO($dsn, $config['username'], $config['password'], $options);
+
         return self::$dbLinks[$name];
+    }
+
+    /**
+     * Get an open connection by name.
+     *
+     * Writing `$link = &self::$dbLinks[$name]` auto-vivified a null entry for an unknown
+     * name, so a typo produced "call to a member function on null" somewhere further down
+     * instead of naming the problem - and left the bogus key behind.
+     *
+     * @access private
+     * @static
+     * @param  string $name    Connection name
+     * @param  bool   $connect Open the connection if it is configured but not yet open
+     * @return PDO
+     */
+    private static function link(string $name, bool $connect = false): PDO
+    {
+        if (isset(self::$dbLinks[$name])) {
+            return self::$dbLinks[$name];
+        }
+
+        // Connect on first use, so a request that never touches the database does not pay
+        // for a connect (or, with persistent connections, a pool checkout)
+        if ($connect === true && !empty(Config::$items['db']['pdo'][$name])) {
+            return self::init($name);
+        }
+
+        $known = implode(', ', array_keys(self::$dbLinks ?? []));
+
+        throw new \Exception(
+            "No connection to database \"{$name}\""
+            . (empty($known) ? '' : " (open connections: {$known})")
+        );
     }
 
     /**
@@ -137,10 +183,7 @@ class Db
             throw new \Exception('Empty query passed');
         }
 
-        $db_link = &self::$dbLinks[$name];
-        if (empty($db_link)) {
-            throw new \Exception('No connection to database');
-        }
+        $db_link = self::link($name, true);
 
         // Do request
         if (!empty(self::$dbConfigs[$name]['debug'])) {
@@ -475,7 +518,7 @@ class Db
      */
     public static function beginTransaction(string $name = 'default'): bool
     {
-        $db_link = &self::$dbLinks[$name];
+        $db_link = self::link($name);
         return $db_link->beginTransaction();
     }
 
@@ -489,7 +532,7 @@ class Db
      */
     public static function inTransaction(string $name = 'default'): bool
     {
-        $db_link = &self::$dbLinks[$name];
+        $db_link = self::link($name);
         return $db_link->inTransaction();
     }
 
@@ -504,7 +547,7 @@ class Db
      */
     public static function commit(string $name = 'default'): bool
     {
-        $db_link = &self::$dbLinks[$name];
+        $db_link = self::link($name);
         return $db_link->commit();
     }
 
@@ -518,7 +561,7 @@ class Db
      */
     public static function rollBack(string $name = 'default'): bool
     {
-        $db_link = &self::$dbLinks[$name];
+        $db_link = self::link($name);
         return $db_link->rollBack();
     }
 

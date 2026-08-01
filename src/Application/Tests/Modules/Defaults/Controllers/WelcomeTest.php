@@ -34,4 +34,60 @@ class WelcomeTest extends TestCase
         $this->assertNotEmpty($response);
         $this->assertTrue(Request::httpErrorInData($response));
     }
+
+
+    /*
+    | Status codes
+    |
+    | These run the front controller in a separate process and read back the status code
+    | it set, because that is the part that was wrong: every unresolvable url used to come
+    | back as 500.
+    */
+
+    /**
+     * @return array [status, body]
+     */
+    private function request(string $url): array
+    {
+        $script = escapeshellarg(__DIR__ . '/../../../status_probe.php');
+        $cmd = 'php ' . $script . ' ' . escapeshellarg($url) . ' 2>/dev/null';
+
+        exec($cmd, $output, $code);
+        $body = implode("\n", $output);
+
+        // The probe prints the status on its own final line
+        $lines = explode("\n", $body);
+        $status = (int) array_pop($lines);
+
+        return [$status, implode("\n", $lines)];
+    }
+
+    public function testResolvedUrlReturns200()
+    {
+        [$status] = $this->request('defaults/welcome/index');
+
+        $this->assertEquals(200, $status);
+    }
+
+    public function testUnknownUrlReturns404()
+    {
+        [$status] = $this->request('/non/existant/url');
+
+        $this->assertEquals(404, $status);
+    }
+
+    public function testUnknownMethodOnAKnownControllerReturns404()
+    {
+        [$status] = $this->request('defaults/welcome/no-such-method');
+
+        $this->assertEquals(404, $status);
+    }
+
+    public function testNotFoundPageDoesNotLeakInternalDetail()
+    {
+        [$status, $body] = $this->request('/non/existant/url');
+
+        $this->assertEquals(404, $status);
+        $this->assertStringNotContainsString('Modules/Core/Models/Router.php', $body);
+    }
 }

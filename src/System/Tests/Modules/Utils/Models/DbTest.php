@@ -139,4 +139,34 @@ class DbTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         Db::delete('posts', []);
     }
+
+    /*
+    | Connection handling
+    */
+
+    public function testUnknownConnectionNameNamesTheProblem()
+    {
+        // `&self::$dbLinks[$name]` auto-vivified a null entry, so a typo surfaced later as
+        // "call to a member function on null" and left the bogus key behind
+        try {
+            Db::commit('no_such_connection');
+            $this->fail('expected an exception');
+        } catch (\Throwable $e) {
+            $this->assertStringContainsString('no_such_connection', $e->getMessage());
+        }
+    }
+
+    public function testUnknownConnectionNameIsNotRemembered()
+    {
+        try {
+            Db::commit('typo_connection');
+        } catch (\Throwable $e) {
+            // expected
+        }
+
+        $links = new \ReflectionProperty(Db::class, 'dbLinks');
+        $links->setAccessible(true);
+
+        $this->assertArrayNotHasKey('typo_connection', (array) $links->getValue());
+    }
 }

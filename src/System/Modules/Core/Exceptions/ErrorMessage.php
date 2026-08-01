@@ -30,7 +30,9 @@ class ErrorMessage extends \Exception
         int $code = 0,
         ?string $description = null,
         ?Throwable $previous = null,
-        int $httpStatusCode = 200,
+        // A thrown ErrorMessage is by definition not a success. Defaulting to 200 meant
+        // `throw new ErrorMessage('boom')` rendered an error page under a 200 OK.
+        int $httpStatusCode = 500,
         ?string $httpStatusMessage = null,
         ?string $forceOutputType = null,
         bool $showStackTrace = false
@@ -77,9 +79,11 @@ class ErrorMessage extends \Exception
 
     public function outputMessage($outputType = ErrorMessage::OUTPUT_TYPE_HTML, $includeHtmlTemplate = false)
     {
-        // Set HTTP status code
+        // Set HTTP status code.
+        // http_response_code() is protocol agnostic - a literal "HTTP/1.0 ..." status line
+        // pins that version onto what may well be an HTTP/2 response.
         if (headers_sent() == false && $this->httpStatusCode != 200) {
-            header("HTTP/1.0 {$this->httpStatusCode} {$this->httpStatusMessage}");
+            http_response_code($this->httpStatusCode);
         }
 
         // Gather stack trace
@@ -139,7 +143,15 @@ XML;
             case ErrorMessage::OUTPUT_TYPE_HTML:
                 $canSendHeaders && header('Content-Type:text/html; charset=utf-8');
 
-                if ($includeHtmlTemplate === true) {
+                // An error can fire before the view engine exists (a failure during
+                // bootstrap, or with twig disabled). Rendering the template would then
+                // fatal inside the error handler itself, so fall back to the plain form.
+                $canRenderTemplate = (
+                    $includeHtmlTemplate === true
+                    && empty(Config::$items['view_engine']) === false
+                );
+
+                if ($canRenderTemplate === true) {
                     // Newlines are turned into <br> by the template's nl2br filter, which
                     // escapes first - doing it here would require |raw on the other side
                     $data = [

@@ -100,6 +100,24 @@ CMD ["/root/meta/scripts/run.bash"]
 EXPOSE 9100
 
 
+###############
+### Testing ###
+###############
+
+# Everything CI runs, in the project's own image. Kept as its own stage so the build
+# stage below stays free of dev dependencies.
+FROM development AS testing
+
+WORKDIR /srv/app
+
+COPY . .
+
+RUN composer install --prefer-dist --no-interaction --no-progress \
+    && npm ci --no-audit --no-fund
+
+CMD ["./scripts/code_tests.bash"]
+
+
 #############
 ### Build ###
 #############

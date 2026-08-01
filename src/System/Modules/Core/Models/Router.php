@@ -6,7 +6,8 @@ use Throwable;
 use System\Modules\Core\Interfaces\RequestContentType;
 use System\Modules\Core\Exceptions\RouterException;
 use System\Modules\Core\Exceptions\ErrorMessage;
-use System\Modules\Core\Models\Load;
+use System\Modules\Core\Exceptions\ErrorMessage\BadRequest;
+use System\Modules\Core\Exceptions\ErrorMessage\NotFound;
 use System\Modules\Core\Models\Config;
 
 /**
@@ -422,21 +423,26 @@ class Router
      */
     public static function error($http_error_code, $error_string = '', $description = '')
     {
-        if (!empty($http_error_code)) {
-            header('HTTP/1.0 ' . $http_error_code . ' ' . $error_string);
-        }
-        $data = [
-            'http_status_code' => $http_error_code,
-            'http_status_message' => $error_string,
+        // Delegate to ErrorMessage so there is exactly one place that emits a status line
+        // and one place that decides the output format. Previously this method sent its
+        // own unguarded header, always rendered html regardless of what the client asked
+        // for, and dropped $description on the floor.
+        $code = (int) $http_error_code;
+        $message = (
+            empty($error_string)
+            ? ErrorMessage::httpStatusCodeToMessage($code)
+            : (string) $error_string
+        );
 
-            'code' => $http_error_code,
-            'message' => $error_string,
-            'description' => '',
-            'stack_trace' => '',
+        $error = new ErrorMessage(
+            message: $message,
+            httpStatusCode: ($code === 0 ? 500 : $code),
+            httpStatusMessage: $message,
+            description: (empty($description) ? null : (string) $description)
+        );
 
-            'error_class' => '',
-        ];
-        Load::view(["Error.html"], $data);
+        $error->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
+
         exit(10);
     }
 
@@ -578,14 +584,14 @@ class Router
 
         if (!empty($allowed)) {
             if (in_array($host, $allowed, true) === false) {
-                throw new RouterException('Untrusted Host header');
+                throw new BadRequest('Bad Request', 'Untrusted Host header');
             }
 
             return $host;
         }
 
         if (preg_match('/^[a-z0-9.\-]+(:[0-9]{1,5})?$/', $host) !== 1) {
-            throw new RouterException('Malformed Host header');
+            throw new BadRequest('Bad Request', 'Malformed Host header');
         }
 
         return $host;
@@ -768,16 +774,28 @@ class Router
     public static function init()
     {
         self::populatePostFromJson();
-        self::splitSegments();
 
         try {
+            // Inside the try so that a bad Host header renders through the same path as
+            // everything else instead of falling through to the global handler
+            self::splitSegments();
+
             self::findController();
             self::loadController();
         } catch (ErrorMessage $e) {
+            // Client faults - 4xx. Rendered, but deliberately not logged or emailed: a
+            // crawler walking dead urls must not page anyone.
             $e->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
         } catch (Throwable $e) {
+            // Anything else is our fault until proven otherwise
             $msg = new ErrorMessage(
-                message: $e->getMessage(),
+                // The message can carry internal detail (paths, sql, request data), so it
+                // only reaches the client in debug mode
+                message: (
+                    Config::get('debug', false) === true
+                    ? $e->getMessage()
+                    : 'Internal Server Error'
+                ),
                 code: intval($e->getCode()),
                 description: null,
                 previous: $e,
@@ -787,11 +805,11 @@ class Router
             $msg->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
 
             if (Logger::contains(Config::$items['logging']['log_level'], 'error')) {
-                sp_log_error($msg);
+                sp_log_error($e);
             }
 
             if (Logger::contains(Config::$items['logging']['report_level'], 'error')) {
-                sp_send_error_email($msg);
+                sp_send_error_email($e);
             }
         }
     }
@@ -886,17 +904,27 @@ class Router
             self::$query_string = trim(self::$query_string, '/&?');
         }
 
-        // Check url against our routing array from configuration
+        // Check url against our routing array from configuration.
+        //
+        // Iterated in reverse with an early exit: the original applied every rule to the
+        // untouched $uri and kept the last one that matched, so first-match-in-reverse is
+        // the same rule and lets the loop stop instead of running a preg_replace per
+        // configured route on every request.
+        //
+        // Not by reference - `as $key => &$item` left $item dangling into the config
+        // array afterwards, which is the classic source of the duplicated-last-element bug.
         $uri_tmp = $uri;
-        foreach (Config::$items['routing'] as $key => &$item) {
-            if (!empty($key) && !empty($item)) {
-                $key = str_replace('#', '\\#', $key);
-                $tmp = preg_replace('#' . $key . '#', $item, $uri);
-                if ($tmp !== $uri) {
-                    self::$initial_segments_url = $uri;
-                    self::$initial_segments = explode('/', $uri);
-                    $uri_tmp = $tmp;
-                }
+        foreach (array_reverse(Config::$items['routing'], true) as $key => $item) {
+            if (empty($key) || empty($item)) {
+                continue;
+            }
+
+            $tmp = preg_replace('#' . str_replace('#', '\\#', $key) . '#', $item, $uri);
+            if ($tmp !== $uri) {
+                self::$initial_segments_url = $uri;
+                self::$initial_segments = explode('/', $uri);
+                $uri_tmp = $tmp;
+                break;
             }
         }
 
@@ -911,7 +939,7 @@ class Router
         }
 
         // Get URL prefixes
-        foreach (Config::$items['url_prefixes'] as &$item) {
+        foreach (Config::$items['url_prefixes'] as $item) {
             if (isset(self::$segments[0]) && self::$segments[0] == $item) {
                 array_shift(self::$segments);
                 self::$prefixes[$item] = $item;
@@ -975,6 +1003,12 @@ class Router
         // Namespace always starts with a module
         self::$namespace = '\\' . $module . '\\Controllers';
 
+        // findController() calls this up to three times with progressively adjusted
+        // segments, and the three passes re-probe many of the same paths - 7 of the 17
+        // stats on a deep 404 were duplicates. A failed stat is never cached by PHP, so
+        // each repeat is a real syscall. Memoise within the request.
+        static $probed = [];
+
         // Look for controller, class and method in segments
         foreach ($segments as $one) {
             if (preg_match('/^[a-zA-Z][a-zA-Z0-9_-]*$/', $segments[$count - 1]) == false) {
@@ -985,7 +1019,9 @@ class Router
             $filename = implode('/', $slice);
             $path_to_file = APP_MODULES_PATH . "/{$module}/Controllers/{$filename}.php";
 
-            if (is_file($path_to_file)) {
+            $exists = $probed[$path_to_file] ??= is_file($path_to_file);
+
+            if ($exists) {
                 $namespace = array_slice($segments, 0, $count - 1);
                 if (!empty($namespace)) {
                     self::$namespace .= '\\' . implode('\\', $namespace);
@@ -1230,8 +1266,13 @@ class Router
                 // Invoke __callStatic
                 $method_response = $ref->getMethod('__callStatic')->invoke(null, $method, $arguments);
             } else {
-                // Error - method not found
-                throw new RouterException('Method "' . $method . '" of class "' . $class . '" could not be found');
+                // The url named a method that does not exist on the controller, and the
+                // controller has no __callStatic to absorb it - an unroutable url, not a
+                // server fault
+                throw new NotFound(
+                    'Not Found',
+                    'Method "' . $method . '" of class "' . $class . '" could not be found'
+                );
             }
 
             // Append method response to construct response
@@ -1267,12 +1308,16 @@ class Router
             if ($ref->hasMethod('destruct') === true) {
                 $response = $ref->getMethod('destruct')->invokeArgs(null, []);
             }
+        } elseif (empty(self::$requested_url)) {
+            // No url at all means the *default* controller is missing, which is a
+            // configuration fault on our side - a genuine 500
+            throw new RouterException(
+                'Default controller was not found: "' . Config::$items['routing'][''] . '"'
+            );
         } else {
-            $msg = 'Controller file for path: "' . self::$requested_url . '" was not found';
-            if (empty(self::$requested_url)) {
-                $msg = 'Default controller was not found: "' . Config::$items['routing'][''] . '"';
-            }
-            throw new RouterException($msg);
+            // The request simply did not resolve to anything. That is the client's
+            // problem, not ours: 404, and no error email per crawler hit.
+            throw new NotFound('Not Found', 'No controller for path: "' . self::$requested_url . '"');
         }
     }
 }

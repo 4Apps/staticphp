@@ -12,10 +12,20 @@ class ExtendedDateTime extends \DateTime
     public static string | null $dateFormat = null;
     public static string | null $timeFormat = null;
 
-    private \IntlDateFormatter $fullDateTimeFormatter;
-    private \IntlDateFormatter $dateTimeFormatter;
-    private \IntlDateFormatter $dateFormatter;
-    private \IntlDateFormatter $timeFormatter;
+    /**
+     * Lazily built IntlDateFormatters, keyed by the accessor that owns them.
+     *
+     * Building one loads ICU's locale bundle, which costs roughly 700 microseconds for the
+     * first and 45 for each subsequent - so eagerly building all four in the constructor
+     * cost about 830 microseconds per instance whether or not anything formatted a date.
+     * Most instances format at most one way, and many format none at all.
+     *
+     * @var \IntlDateFormatter[]
+     */
+    private array $formatters = [];
+
+    private string $locale = '';
+    private string $timeZoneString = '';
 
     // ##############
     // ### Create ###
@@ -29,48 +39,48 @@ class ExtendedDateTime extends \DateTime
             $timeZoneString = date_default_timezone_get();
         }
         $timeZone = new \DateTimeZone($timeZoneString);
-        $locale = setlocale(LC_TIME, 0);
-        $locale = explode('.', $locale)[0];
 
-        $this->fullDateTimeFormatter = new \IntlDateFormatter(
-            $locale,
-            \IntlDateFormatter::FULL,
-            \IntlDateFormatter::FULL,
-            $timeZoneString,
-            null,
-            self::$fullDateTimeFormat
-        );
-        $this->dateTimeFormatter = new \IntlDateFormatter(
-            $locale,
-            \IntlDateFormatter::SHORT,
-            \IntlDateFormatter::SHORT,
-            $timeZoneString,
-            null,
-            self::$dateTimeFormat
-        );
-        $this->dateFormatter = new \IntlDateFormatter(
-            $locale,
-            \IntlDateFormatter::SHORT,
-            \IntlDateFormatter::NONE,
-            $timeZoneString,
-            null,
-            self::$dateFormat
-        );
-        $this->timeFormatter = new \IntlDateFormatter(
-            $locale,
-            \IntlDateFormatter::NONE,
-            \IntlDateFormatter::SHORT,
-            $timeZoneString,
-            null,
-            self::$timeFormat
-        );
+        $locale = setlocale(LC_TIME, 0);
+        $this->locale = explode('.', (string) $locale)[0];
+        $this->timeZoneString = $timeZoneString;
 
         try {
             parent::__construct($datetime, $timeZone);
         } catch (\Exception $e) {
-            $timestamp = $this->dateTimeFormatter->parse($datetime);
+            // Only this path needs a formatter at construction time
+            $timestamp = $this->formatter('dateTime')->parse($datetime);
             parent::__construct("@{$timestamp}", $timeZone);
         }
+    }
+
+    /**
+     * Get one of the four formatters, building it on first use.
+     *
+     * @access private
+     * @param  string $which One of: fullDateTime, dateTime, date, time
+     * @return \IntlDateFormatter
+     */
+    private function formatter(string $which): \IntlDateFormatter
+    {
+        if (isset($this->formatters[$which])) {
+            return $this->formatters[$which];
+        }
+
+        [$dateType, $timeType, $pattern] = match ($which) {
+            'fullDateTime' => [\IntlDateFormatter::FULL, \IntlDateFormatter::FULL, self::$fullDateTimeFormat],
+            'dateTime' => [\IntlDateFormatter::SHORT, \IntlDateFormatter::SHORT, self::$dateTimeFormat],
+            'date' => [\IntlDateFormatter::SHORT, \IntlDateFormatter::NONE, self::$dateFormat],
+            'time' => [\IntlDateFormatter::NONE, \IntlDateFormatter::SHORT, self::$timeFormat],
+        };
+
+        return $this->formatters[$which] = new \IntlDateFormatter(
+            $this->locale,
+            $dateType,
+            $timeType,
+            $this->timeZoneString,
+            null,
+            $pattern
+        );
     }
 
     public function previousMonth()
@@ -136,21 +146,21 @@ class ExtendedDateTime extends \DateTime
 
     public function formatFullDateTime(): string
     {
-        return $this->fullDateTimeFormatter->format($this);
+        return $this->formatter('fullDateTime')->format($this);
     }
 
     public function formatDateTime(): string
     {
-        return $this->dateTimeFormatter->format($this);
+        return $this->formatter('dateTime')->format($this);
     }
 
     public function formatDate(): string
     {
-        return $this->dateFormatter->format($this);
+        return $this->formatter('date')->format($this);
     }
 
     public function formatTime(): string
     {
-        return $this->timeFormatter->format($this);
+        return $this->formatter('time')->format($this);
     }
 }

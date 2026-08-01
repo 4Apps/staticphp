@@ -4,6 +4,9 @@ namespace System\Tests\Modules\Core\Exceptions;
 
 use PHPUnit\Framework\TestCase;
 use System\Modules\Core\Exceptions\ErrorMessage;
+use System\Modules\Core\Exceptions\ErrorMessage\BadRequest;
+use System\Modules\Core\Exceptions\ErrorMessage\Forbidden;
+use System\Modules\Core\Exceptions\ErrorMessage\NotFound;
 
 /**
  * Exception messages routinely carry request data - Router wraps the requested url into
@@ -104,6 +107,48 @@ class ErrorMessageTest extends TestCase
 
         // text/plain is not parsed as html, so the payload is inert and passes through
         $this->assertStringContainsString(self::PAYLOAD, $output);
+    }
+
+    /*
+    | Status codes
+    */
+
+    public function testThrownErrorMessageDefaultsTo500()
+    {
+        // Defaulting to 200 meant an error page was served under a success status
+        $error = new ErrorMessage('something broke');
+
+        $this->assertEquals(500, $error->httpStatusCode);
+    }
+
+    public function testNotFoundCarriesA404AndItsMessage()
+    {
+        $error = new NotFound('Not Found', 'no controller for /x');
+
+        $this->assertEquals(404, $error->httpStatusCode);
+        $this->assertEquals('Not Found', $error->getMessage());
+        $this->assertEquals('no controller for /x', $error->description);
+        $this->assertEquals('Not Found', $error->httpStatusMessage);
+    }
+
+    public function testForbiddenCarriesA403()
+    {
+        $this->assertEquals(403, (new Forbidden())->httpStatusCode);
+    }
+
+    public function testBadRequestCarriesA400()
+    {
+        $this->assertEquals(400, (new BadRequest())->httpStatusCode);
+    }
+
+    public function testClientFaultsAreErrorMessagesSoTheyAreNotLogged()
+    {
+        // Router::init() renders ErrorMessage subclasses without logging or emailing, and
+        // sends everything else down the 500-plus-alert path. That split is what keeps a
+        // crawler on dead urls from paging someone, so it is worth pinning.
+        $this->assertInstanceOf(ErrorMessage::class, new NotFound());
+        $this->assertInstanceOf(ErrorMessage::class, new Forbidden());
+        $this->assertInstanceOf(ErrorMessage::class, new BadRequest());
     }
 
     public function testStatusCodeToMessage()

@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor is composer.json's "php": ">=8.1"; the top is what the image ships
+        php: ['8.1', '8.2', '8.4']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # intl is required by ExtendedDateTime; the rest match docker/app/Dockerfile
+          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql
+          coverage: none
+
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --optimize-autoloader
+
+      - name: Run PHP code tests
+        run: ./scripts/code_tests.bash php
+
+  js:
+    name: JS / TS
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run JS code tests
+        run: ./scripts/code_tests.bash js
+
+      - name: Build assets
+        run: |
+          npm run css:build
+          npx rspack build --mode production
+
+  build-info:
+    name: Build info
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # scripts/build_info.bash derives the patch number from the commit count, so it
+          # needs the full history - a shallow clone would silently produce version .1
+          fetch-depth: 0
+
+      - name: Generate build info
+        run: ./scripts/build_info.bash
+
+      - name: Show it
+        run: cat .build_info.json
