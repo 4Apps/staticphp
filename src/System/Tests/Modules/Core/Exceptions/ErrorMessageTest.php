@@ -42,13 +42,79 @@ class ErrorMessageTest extends TestCase
 
     public function testHtmlOutputStillTurnsNewlinesIntoBreaks()
     {
-        $error = new ErrorMessage(message: 'msg', description: "a\nb", httpStatusCode: 200);
+        $error = new ErrorMessage(
+            message: 'msg',
+            description: "line one\nline two",
+            httpStatusCode: 200,
+            publicDescription: true
+        );
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_HTML, false);
         $output = ob_get_clean();
 
-        $this->assertStringContainsString('<br', $output);
+        $this->assertMatchesRegularExpression('/line one<br\s*\/?>\s*\nline two/', $output);
+    }
+
+    /**
+     * The framework's own descriptions name classes, methods and paths - Router's 404
+     * carries "Method x of class Y could not be found". With debug off those are internal
+     * detail, whatever format the client asked for.
+     */
+    public function testDescriptionsAreWithheldUnlessTheThrowerPublishesThem()
+    {
+        $description = 'Method "wire" of class "Payments" could not be found';
+
+        foreach (
+            [
+                ErrorMessage::OUTPUT_TYPE_HTML,
+                ErrorMessage::OUTPUT_TYPE_PLAIN,
+                ErrorMessage::OUTPUT_TYPE_JSON,
+                ErrorMessage::OUTPUT_TYPE_XML,
+            ] as $outputType
+        ) {
+            $error = new ErrorMessage(message: 'Not Found', description: $description, httpStatusCode: 404);
+
+            ob_start();
+            $error->outputMessage($outputType, false);
+            $output = ob_get_clean();
+
+            $this->assertStringNotContainsString('Payments', $output, $outputType);
+        }
+    }
+
+    public function testAPublishedDescriptionIsShown()
+    {
+        $error = new ErrorMessage(
+            message: 'Not Found',
+            description: 'That invoice has been archived.',
+            httpStatusCode: 404,
+            publicDescription: true
+        );
+
+        ob_start();
+        $error->outputMessage(ErrorMessage::OUTPUT_TYPE_PLAIN, false);
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('That invoice has been archived.', $output);
+    }
+
+    public function testTheStatusPageCarriesNeitherTheMessageNorTheDescription()
+    {
+        $error = new ErrorMessage(
+            message: 'Not Found',
+            description: 'No controller for path: "admin/secrets"',
+            httpStatusCode: 404
+        );
+
+        ob_start();
+        $error->outputMessage(ErrorMessage::OUTPUT_TYPE_HTML, true);
+        $output = ob_get_clean();
+
+        $this->assertStringStartsWith('<!DOCTYPE html>', $output);
+        $this->assertStringContainsString('404', $output);
+        $this->assertStringNotContainsString('admin/secrets', $output);
+        $this->assertStringNotContainsString('ErrorMessage', $output);
     }
 
     public function testXmlOutputEscapesTheMessage()

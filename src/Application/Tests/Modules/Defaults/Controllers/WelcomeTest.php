@@ -47,10 +47,11 @@ class WelcomeTest extends TestCase
     /**
      * @return array [status, body]
      */
-    private function request(string $url): array
+    private function request(string $url, bool $production = false): array
     {
         $script = escapeshellarg(__DIR__ . '/../../../status_probe.php');
-        $cmd = 'php ' . $script . ' ' . escapeshellarg($url) . ' 2>/dev/null';
+        $cmd = 'php ' . $script . ' ' . escapeshellarg($url)
+            . ($production ? ' --prod' : '') . ' 2>/dev/null';
 
         exec($cmd, $output, $code);
         $body = implode("\n", $output);
@@ -85,9 +86,24 @@ class WelcomeTest extends TestCase
 
     public function testNotFoundPageDoesNotLeakInternalDetail()
     {
+        // Run as production, because with debug on the developer page is supposed to
+        // carry every one of these
+        [$status, $body] = $this->request('/non/existant/url', true);
+
+        $this->assertEquals(404, $status);
+        $this->assertStringStartsWith('<!DOCTYPE html>', $body);
+        $this->assertStringContainsString('404 Not Found', $body);
+        $this->assertStringNotContainsString('Modules/Core/Models/Router.php', $body);
+        $this->assertStringNotContainsString('No controller for path', $body);
+        $this->assertStringNotContainsString('ErrorMessage', $body);
+    }
+
+    public function testDebugPageCarriesTheDetailTheStatusPageWithholds()
+    {
         [$status, $body] = $this->request('/non/existant/url');
 
         $this->assertEquals(404, $status);
-        $this->assertStringNotContainsString('Modules/Core/Models/Router.php', $body);
+        $this->assertStringContainsString('No controller for path', $body);
+        $this->assertStringContainsString('Modules/Core/Models/Router.php', $body);
     }
 }

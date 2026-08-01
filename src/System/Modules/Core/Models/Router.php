@@ -438,7 +438,10 @@ class Router
             message: $message,
             httpStatusCode: ($code === 0 ? 500 : $code),
             httpStatusMessage: $message,
-            description: (empty($description) ? null : (string) $description)
+            description: (empty($description) ? null : (string) $description),
+            // Whoever called Router::error() passed this description in order to have it
+            // shown, so it is published rather than kept for debug mode
+            publicDescription: true
         );
 
         $error->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);

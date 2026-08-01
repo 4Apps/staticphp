@@ -183,6 +183,56 @@ take a dump first.** Postgres only; the old schema never shipped for anything el
 `scripts/i18n_integration.php` exercises all of this against a live Postgres and MySQL,
 including the upgrade path.
 
+### Error pages
+
+There are two of them, and which one a browser gets is decided by `$config['debug']` and
+by nothing else.
+
+**The status page** is what the public sees. A status code, the standard explanation for
+it, and nothing internal — no exception message, no path, no trace. 5xx also carries a
+short reference id, which is written into the log line and the error email for the same
+request, so "something went wrong, reference `7f3a1c`" can actually be looked up. If a
+reverse proxy already set `X-Request-Id`, that is used instead.
+
+**The debug page** is what a developer sees. The exception and everything it was caused
+by, each with the source around the throw and a stack trace whose frames expand into their
+own source. Under it, the request: headers, query, body, cookies, session, `$_SERVER` and
+the runtime. Anything that looks like a credential is replaced with `***` first, in the
+page and in the log alike.
+
+Both are one self contained file — inline css, no fonts, images or scripts fetched from
+anywhere, light and dark. The page that renders a broken application must not depend on
+the application: an error page that needs the asset pipeline or the template engine cannot
+render the failure of the asset pipeline or the template engine. For the same reason they
+are plain php templates rather than twig ones.
+
+Replace either per application:
+
+```php
+$config['error_pages'] = [
+    'status' => APP_PATH . '/Views/Errors/status.php',
+    'debug'  => null,
+];
+```
+
+`System\Modules\Core\Exceptions\ErrorPage` documents what a template is handed. Every value
+goes through the `$esc` callable it receives — messages and request data routinely contain
+markup.
+
+An `ErrorMessage` description is a note to a developer, not a sentence for the public:
+Router's 404 carries `Method "wire" of class "Payments" could not be found`. Descriptions
+are therefore withheld with debug off, in every output format. Pass `publicDescription:
+true` when the description really is meant to be published:
+
+```php
+throw new ErrorMessage(
+    message: 'Not Found',
+    description: 'That invoice has been archived.',
+    httpStatusCode: 404,
+    publicDescription: true
+);
+```
+
 ### Basic Nginx configuration
 
     server {

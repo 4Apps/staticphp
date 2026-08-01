@@ -42,8 +42,14 @@ $config['disable_twig'] = false; // Option to disable twig template engine
 | Debug
 |--------------------------------------------------------------------------
 */
-// Set environment
-$config['environment'] = !empty($_ENV['APP_ENV']) ? $_ENV['APP_ENV'] : 'unknown';
+// Set environment.
+// A front controller may pin it - the test probe does, so it can exercise the production
+// error pages - and an explicit choice beats a dotfile.
+$config['environment'] = (
+    defined('SP_ENVIRONMENT')
+    ? SP_ENVIRONMENT
+    : (!empty($_ENV['APP_ENV']) ? $_ENV['APP_ENV'] : 'unknown')
+);
 $config['debug']       = ($config['environment'] !== 'dev' ? false : true);
 $config['debug_ips']   = ['::1', '127.0.0.1'];
 
@@ -88,6 +94,29 @@ $config['logging'] = [
             sendIM($endpoint, $subject, $message, $type);
         }
     },
+];
+
+/*
+|--------------------------------------------------------------------------
+| Error pages
+|
+| Absolute paths to plain php templates replacing the built in ones. Leave null for the
+| framework's own pages.
+|
+|   'status' - what the public sees: a status code and a sentence, nothing internal
+|   'debug'  - what a developer sees when $config['debug'] is on: message, source,
+|              stack trace and the whole request
+|
+| Plain php rather than twig on purpose. An error page that needs the template engine is
+| unable to render a broken template engine, which is when it is needed most. The same
+| goes for stylesheets and scripts - both pages are one self contained file.
+|
+| See System\Modules\Core\Exceptions\ErrorPage for the variables a template receives.
+|--------------------------------------------------------------------------
+*/
+$config['error_pages'] = [
+    'status' => null,
+    'debug' => null,
 ];
 
 /*

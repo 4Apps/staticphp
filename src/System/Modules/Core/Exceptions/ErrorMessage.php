@@ -4,7 +4,6 @@ namespace System\Modules\Core\Exceptions;
 
 use Throwable;
 use System\Modules\Core\Interfaces\RequestContentType;
-use System\Modules\Core\Models\Load;
 use System\Modules\Core\Models\Config;
 
 /**
@@ -19,6 +18,7 @@ class ErrorMessage extends \Exception
 
     private ?string $forceOutputType = null;
     private bool $showStackTrace = false;
+    private bool $publicDescription = false;
 
     public const OUTPUT_TYPE_PLAIN = 'plain';
     public const OUTPUT_TYPE_HTML = 'html';
@@ -35,7 +35,12 @@ class ErrorMessage extends \Exception
         int $httpStatusCode = 500,
         ?string $httpStatusMessage = null,
         ?string $forceOutputType = null,
-        bool $showStackTrace = false
+        bool $showStackTrace = false,
+        // The framework's own descriptions name classes, methods and paths - Router's 404
+        // carries "Method x of class Y could not be found". Those are notes to a
+        // developer, so a description reaches the public only when the thrower says it
+        // may. Anyone else gets the standard explanation for the status code.
+        bool $publicDescription = false
     ) {
         $this->description = $description;
         $this->httpStatusCode = $httpStatusCode;
@@ -47,6 +52,7 @@ class ErrorMessage extends \Exception
         }
         $this->forceOutputType = $forceOutputType;
         $this->showStackTrace = $showStackTrace;
+        $this->publicDescription = $publicDescription;
 
         parent::__construct($message, $code, $previous);
     }
@@ -64,17 +70,54 @@ class ErrorMessage extends \Exception
         return trim($stackTrace);
     }
 
-    private function getClass(): string
+    /**
+     * The description, if this one is allowed out.
+     *
+     * Debug mode sees everything. Everybody else sees a description only when the thrower
+     * marked it publishable - see $publicDescription.
+     *
+     * @return ?string
+     */
+    private function visibleDescription(): ?string
     {
-        if ($this->httpStatusCode >= 500 && $this->httpStatusCode < 600) {
-            return "e{$this->httpStatusCode} e500";
-        } elseif ($this->httpStatusCode >= 400 && $this->httpStatusCode < 500) {
-            return "e{$this->httpStatusCode} e400";
-        } elseif ($this->httpStatusCode >= 300 && $this->httpStatusCode < 400) {
-            return "e{$this->httpStatusCode} e400";
-        } else {
-            return "e{$this->httpStatusCode}";
+        if ($this->publicDescription === true || Config::get('debug', false) === true) {
+            return $this->description;
         }
+
+        return null;
+    }
+
+    /**
+     * Picks between the two full page renderings and builds it.
+     *
+     * This is the single place that decides how much a browser is told. Debug on means
+     * the developer page - message, source, trace, request. Debug off means the status
+     * page, which carries the status code, whatever description the thrower chose to
+     * publish, and nothing else.
+     *
+     * @return string
+     */
+    private function htmlPage(): string
+    {
+        if (Config::get('debug', false) === true) {
+            return ErrorPage::debug(
+                // Router wraps the real failure into an ErrorMessage, so the interesting
+                // trace is usually one level down
+                $this->getPrevious() ?? $this,
+                $this->httpStatusCode,
+                ErrorPage::requestId(),
+                $this->description
+            );
+        }
+
+        return ErrorPage::status(
+            $this->httpStatusCode,
+            $this->httpStatusMessage,
+            $this->visibleDescription(),
+            // A reference is only worth printing when there is something to correlate it
+            // with. 5xx is logged; a crawler hitting a dead url is not.
+            ($this->httpStatusCode >= 500 ? ErrorPage::requestId() : null)
+        );
     }
 
     public function outputMessage($outputType = ErrorMessage::OUTPUT_TYPE_HTML, $includeHtmlTemplate = false)
@@ -92,6 +135,9 @@ class ErrorMessage extends \Exception
             $stackTrace = $this->gatherTrace();
         }
 
+        // See $publicDescription
+        $description = (string) $this->visibleDescription();
+
         // Force output type
         if (!empty($this->forceOutputType)) {
             $outputType = $this->forceOutputType;
@@ -106,7 +152,7 @@ class ErrorMessage extends \Exception
         switch ($outputType) {
             case ErrorMessage::OUTPUT_TYPE_PLAIN:
                 $canSendHeaders && header('Content-Type:text/plain; charset=utf-8');
-                echo "{$this->code} {$this->message}\n\n{$this->description}\n\n{$stackTrace}";
+                echo "{$this->code} {$this->message}\n\n{$description}\n\n{$stackTrace}";
                 break;
 
 
@@ -116,7 +162,7 @@ class ErrorMessage extends \Exception
                     'msg' => [
                         'code' => $this->code,
                         'text' => $this->message,
-                        'description' => trim("{$this->description}\n{$stackTrace}", "\n"),
+                        'description' => trim("{$description}\n{$stackTrace}", "\n"),
                     ],
                 ]);
                 break;
@@ -127,7 +173,7 @@ class ErrorMessage extends \Exception
                 // Messages routinely carry request data, so every value is escaped
                 $xmlCode = htmlspecialchars((string) $this->code, ENT_XML1 | ENT_QUOTES, 'UTF-8');
                 $xmlMessage = htmlspecialchars((string) $this->message, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-                $xmlDescription = htmlspecialchars((string) $this->description, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $xmlDescription = htmlspecialchars($description, ENT_XML1 | ENT_QUOTES, 'UTF-8');
                 $xmlTrace = htmlspecialchars((string) $stackTrace, ENT_XML1 | ENT_QUOTES, 'UTF-8');
 
                 echo <<<XML
@@ -143,36 +189,14 @@ XML;
             case ErrorMessage::OUTPUT_TYPE_HTML:
                 $canSendHeaders && header('Content-Type:text/html; charset=utf-8');
 
-                // An error can fire before the view engine exists (a failure during
-                // bootstrap, or with twig disabled). Rendering the template would then
-                // fatal inside the error handler itself, so fall back to the plain form.
-                $canRenderTemplate = (
-                    $includeHtmlTemplate === true
-                    && empty(Config::$items['view_engine']) === false
-                );
-
-                if ($canRenderTemplate === true) {
-                    // Newlines are turned into <br> by the template's nl2br filter, which
-                    // escapes first - doing it here would require |raw on the other side
-                    $data = [
-                        'http_status_code' => $this->httpStatusCode,
-                        'http_status_message' => $this->httpStatusMessage,
-
-                        'code' => $this->code,
-                        'message' => $this->message,
-                        'description' => $this->description,
-                        'stack_trace' => $stackTrace,
-
-                        'error_class' => $this->getClass(),
-                    ];
-                    Config::$items['view_engine']->setCache(false);
-                    Load::view(["Error.html"], $data);
+                if ($includeHtmlTemplate === true) {
+                    echo $this->htmlPage();
                 } else {
                     // Exception messages regularly contain request data, so escape before
                     // turning newlines into markup
                     $htmlCode = htmlspecialchars((string) $this->code, ENT_QUOTES, 'UTF-8');
                     $htmlMessage = htmlspecialchars((string) $this->message, ENT_QUOTES, 'UTF-8');
-                    $htmlDescription = htmlspecialchars((string) $this->description, ENT_QUOTES, 'UTF-8');
+                    $htmlDescription = htmlspecialchars($description, ENT_QUOTES, 'UTF-8');
                     $htmlTrace = htmlspecialchars((string) $stackTrace, ENT_QUOTES, 'UTF-8');
 
                     $htmlDescription = nl2br($htmlDescription);

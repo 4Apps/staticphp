@@ -1,5 +1,6 @@
 <?php
 
+use System\Modules\Core\Exceptions\ErrorPage;
 use System\Modules\Core\Exceptions\RouterException;
 use System\Modules\Core\Exceptions\SpErrorException;
 use System\Modules\Core\Models\Config;
@@ -55,13 +56,12 @@ function sp_exception_handler(Throwable $exception)
         );
     }
 
-    if (function_exists('http_response_code') && headers_sent() === false) {
+    if (headers_sent() === false) {
         http_response_code(500);
     }
 
     if (Logger::contains(Config::$items['logging']['display_level'], 'error')) {
-        $errorMsg = sp_format_exception($exception, false, true);
-        echo $errorMsg;
+        echo sp_render_exception($exception);
     }
 
     if (Logger::contains(Config::$items['logging']['log_level'], 'error')) {
@@ -73,6 +73,36 @@ function sp_exception_handler(Throwable $exception)
     }
 
     exit(10);
+}
+
+/**
+ * Renders an uncaught exception for whoever is on the other end of this request.
+ *
+ * This is the handler of last resort - nothing downstream will catch what it emits - so
+ * it commits to a format here rather than guessing at one further down. A terminal gets
+ * plain text; a browser gets the debug page or the status page, decided by debug mode and
+ * by nothing else.
+ *
+ * @see ErrorPage
+ * @access public
+ * @param Throwable $e
+ * @return string
+ */
+function sp_render_exception(Throwable $e): string
+{
+    if (PHP_SAPI === 'cli') {
+        return sp_format_exception($e, true, false);
+    }
+
+    if (headers_sent() === false) {
+        header('Content-Type:text/html; charset=utf-8');
+    }
+
+    if (Config::get('debug', false) === true) {
+        return ErrorPage::debug($e, 500, ErrorPage::requestId());
+    }
+
+    return ErrorPage::status(500, null, null, ErrorPage::requestId());
 }
 
 /**
@@ -141,24 +171,9 @@ function sp_send_error_email(Throwable $e)
  * */
 function sp_remove_sensitive_data($data)
 {
-    if (is_array($data)) {
-        foreach ($data as $key => $value) {
-            // Check the key first, whatever the value's type. Checking only string values
-            // would let a sensitive key holding an array or an int through untouched.
-            if (preg_match('/(password|passwd|pwd|secret|token|api_key|api secret)/i', (string) $key)) {
-                $data[$key] = '***';
-                continue;
-            }
-
-            if (is_array($value)) {
-                $data[$key] = sp_remove_sensitive_data($value);
-            }
-        }
-    } elseif (is_string($data)) {
-        $data = preg_replace('/(password|passwd|pwd|secret|token|api_key|api secret)/i', '***', $data);
-    }
-
-    return $data;
+    // One implementation, shared with the debug page, so a pattern added in one place
+    // cannot leave the other still printing the value
+    return ErrorPage::redact($data);
 }
 
 /**
@@ -176,6 +191,9 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
     // Current time
     $datetime = date('d.m.Y H:i:s');
 
+    // The same id the error page shows the visitor, so "reference 7f3a1c" can be grepped
+    $reference = ErrorPage::requestId();
+
     // Current url
     $url  = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://');
     $url .= (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '[unknown host name]');
@@ -184,7 +202,7 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
     $stackTrace = $e->getTraceAsString();
     $previous = $e->getPrevious();
     while ($previous) {
-        $stackTrace .= "\n\Trace:\n" . $previous->getTraceAsString();
+        $stackTrace .= "\nTrace:\n" . $previous->getTraceAsString();
 
         $previous = $previous->getPrevious();
     }
@@ -230,7 +248,13 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
     );
 
     // Post
-    $post = !empty($_POST) ? json_encode($_POST, (defined('JSON_PRETTY_PRINT') ? JSON_PRETTY_PRINT : null)) : '{}';
+    // Redacted like the rest: a failed login posts the password, and the log and the
+    // error email are the two places it must not end up
+    $post = (
+        empty($_POST)
+        ? '{}'
+        : json_encode(sp_remove_sensitive_data($_POST), JSON_PRETTY_PRINT)
+    );
 
     // Format message
     if ($markup === true) {
@@ -244,12 +268,14 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
         if ($markup === true) {
             $msg = "<pre><strong>Error:</strong> {$message}<br /><br />";
             $msg .= "<strong>URL: </strong>{$url}<br />";
+            $msg .= "<strong>Reference:</strong> {$reference}<br />";
             $msg .= "<strong>Datetime:</strong> {$datetime}<br /><br />";
             $msg .= "<strong>Sesssion Info</strong><br />{$session}<br /><br />";
             $msg .= "<strong>Post Info</strong><br />{$post}<br /><br /><strong>Server</strong><br />{$server}</pre>";
         } else {
             $msg = "Error: {$message}\n\n";
             $msg .= "URL: {$url}\n";
+            $msg .= "Reference: {$reference}\n";
             $msg .= "Datetime: {$datetime}\n\n";
             $msg .= "Sesssion Info:\n{$session}\n\n";
             $msg .= "Post Info\n{$post}\n\n";
