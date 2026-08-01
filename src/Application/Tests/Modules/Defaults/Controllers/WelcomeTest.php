@@ -10,7 +10,7 @@ use StaticPHP\Core\Models\Request;
 
 class WelcomeTest extends TestCase
 {
-    public function testDefaultController()
+    public function testDefaultController(): void
     {
         $response = Request::internal('');
         $this->assertNotEmpty($response);
@@ -19,7 +19,7 @@ class WelcomeTest extends TestCase
     }
 
 
-    public function testUrl()
+    public function testUrl(): void
     {
         $response = Request::internal('defaults/welcome/index');
         $this->assertNotEmpty($response);
@@ -28,7 +28,7 @@ class WelcomeTest extends TestCase
     }
 
 
-    public function testMissingUrl()
+    public function testMissingUrl(): void
     {
         $response = Request::internal('/non/existant/url');
         $this->assertNotEmpty($response);
@@ -45,7 +45,7 @@ class WelcomeTest extends TestCase
     */
 
     /**
-     * @return array [status, body]
+     * @return array{0: int, 1: string} [status, body]
      */
     private function request(string $url, bool $production = false): array
     {
@@ -63,28 +63,28 @@ class WelcomeTest extends TestCase
         return [$status, implode("\n", $lines)];
     }
 
-    public function testResolvedUrlReturns200()
+    public function testResolvedUrlReturns200(): void
     {
         [$status] = $this->request('defaults/welcome/index');
 
         $this->assertEquals(200, $status);
     }
 
-    public function testUnknownUrlReturns404()
+    public function testUnknownUrlReturns404(): void
     {
         [$status] = $this->request('/non/existant/url');
 
         $this->assertEquals(404, $status);
     }
 
-    public function testUnknownMethodOnAKnownControllerReturns404()
+    public function testUnknownMethodOnAKnownControllerReturns404(): void
     {
         [$status] = $this->request('defaults/welcome/no-such-method');
 
         $this->assertEquals(404, $status);
     }
 
-    public function testNotFoundPageDoesNotLeakInternalDetail()
+    public function testNotFoundPageDoesNotLeakInternalDetail(): void
     {
         // Run as production, because with debug on the developer page is supposed to
         // carry every one of these
@@ -98,7 +98,7 @@ class WelcomeTest extends TestCase
         $this->assertStringNotContainsString('ErrorMessage', $body);
     }
 
-    public function testDebugPageCarriesTheDetailTheStatusPageWithholds()
+    public function testDebugPageCarriesTheDetailTheStatusPageWithholds(): void
     {
         [$status, $body] = $this->request('/non/existant/url');
 

@@ -5,7 +5,7 @@ define('SAPI', 'cli');
 
 require __DIR__ . '/vendor/autoload.php';
 
-if (count($GLOBALS['argv']) == 1) {
+if (count($argv) == 1) {
     echo "Missing arguments\n";
     exit -1;
 }
@@ -19,15 +19,15 @@ $cliCommands = [
     'i18n' => StaticPHP\Utils\Models\Translation\Cli::class,
 ];
 
-if (isset($cliCommands[$GLOBALS['argv'][1]])) {
-    $class = $cliCommands[$GLOBALS['argv'][1]];
+if (isset($cliCommands[$argv[1]])) {
+    $class = $cliCommands[$argv[1]];
 
-    exit($class::run(array_slice($GLOBALS['argv'], 2), __DIR__));
+    exit($class::run(array_slice($argv, 2), __DIR__));
 }
 
 // Go through all arguments
 $last_param = null;
-foreach ($GLOBALS['argv'] as $param) {
+foreach ($argv as $param) {
     switch ($last_param) {
         case '--query':
             parse_str($param, $_GET);

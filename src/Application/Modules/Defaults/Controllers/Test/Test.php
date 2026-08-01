@@ -7,17 +7,22 @@ use StaticPHP\Core\Controllers\Controller;
 
 class Test extends Controller
 {
-    private static function getPage()
+    private static function getPage(): string
     {
         return Router::$module . " -> " . Router::$controller . " -> " . Router::$method;
     }
 
-    public static function index()
+    public static function index(): void
     {
         echo self::getPage();
     }
 
-    public static function json()
+    /**
+     * An array return is encoded as json by the router.
+     *
+     * @return array<string, string>
+     */
+    public static function json(): array
     {
         return [
             'status' => 'OK',

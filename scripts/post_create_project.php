@@ -22,7 +22,7 @@
  */
 
 $root = dirname(__DIR__);
-$newProject = in_array('--new-project', array_slice($GLOBALS['argv'], 1), true);
+$newProject = in_array('--new-project', array_slice($argv, 1), true);
 
 /**
  * Copies an example file to its real counterpart, optionally rewriting lines on the way.
@@ -80,7 +80,9 @@ function applyLocalIds(string $contents): string
 
     $ids = ['LOCAL_USER_ID' => posix_getuid(), 'LOCAL_GROUP_ID' => posix_getgid()];
     foreach ($ids as $key => $value) {
-        $contents = preg_replace('/^' . $key . '=.*$/m', "{$key}={$value}", $contents);
+        // A preg_replace failure returns null; keeping the unsubstituted text is better
+        // than writing an empty .env
+        $contents = preg_replace('/^' . $key . '=.*$/m', "{$key}={$value}", $contents) ?? $contents;
     }
 
     return $contents;
@@ -141,7 +143,10 @@ function resetComposerMetadata(string $root): void
     $composer['description'] = '';
     $composer['license'] = 'proprietary';
     unset($composer['authors']);
-    unset($composer['scripts']['post-create-project-cmd']);
+
+    if (is_array($composer['scripts'] ?? null)) {
+        unset($composer['scripts']['post-create-project-cmd']);
+    }
 
     $encoded = json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
     if (file_put_contents($path, $encoded) === false) {

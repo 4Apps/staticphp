@@ -4,13 +4,15 @@
  * Dev router
  */
 
-if (strpos($_SERVER['SERVER_SOFTWARE'], 'Development Server') === false) {
+$serverSoftware = $_SERVER['SERVER_SOFTWARE'] ?? '';
+if (is_string($serverSoftware) === false || strpos($serverSoftware, 'Development Server') === false) {
     echo 'Should only be used in development';
     exit;
 }
 
 chdir(__DIR__);
-$requested_uri = explode('?', $_SERVER["REQUEST_URI"])[0];
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$requested_uri = explode('?', is_string($requestUri) ? $requestUri : '')[0];
 $filePath = realpath(ltrim($requested_uri, '/'));
 if ($filePath && is_dir($filePath)) {
     // attempt to find an index file

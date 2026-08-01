@@ -16,7 +16,8 @@
 $buildInfoFile = __DIR__ . '/../../../.build_info.json';
 $buildInfo = [];
 if (is_file($buildInfoFile)) {
-    $buildInfo = json_decode((string) file_get_contents($buildInfoFile), true) ?: [];
+    $decodedBuildInfo = json_decode((string) file_get_contents($buildInfoFile), true);
+    $buildInfo = (is_array($decodedBuildInfo) ? $decodedBuildInfo : []);
 }
 
 if (!empty($buildInfo)) {

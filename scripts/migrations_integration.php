@@ -92,6 +92,9 @@ function harness(PDO $pdo, string $dsn, array $files): array
     return [$commands, $tracker, $dir];
 }
 
+/**
+ * @return array<string, \StaticPHP\Utils\Models\Migrations\State>
+ */
 function statesOf(Tracker $tracker, string $dir): array
 {
     $byName = [];
@@ -102,6 +105,9 @@ function statesOf(Tracker $tracker, string $dir): array
     return $byName;
 }
 
+/**
+ * @return array{0: PDO, 1: string}|null [pdo, dsn]
+ */
 function connect(string $prefix): ?array
 {
     $dsn = getenv("MIGRATIONS_{$prefix}_DSN");

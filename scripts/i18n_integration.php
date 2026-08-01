@@ -25,6 +25,7 @@ use StaticPHP\Utils\Models\Db;
 use StaticPHP\Utils\Models\i18n;
 use StaticPHP\Utils\Models\Translation\Catalog;
 use StaticPHP\Utils\Models\Translation\Commands;
+use StaticPHP\Utils\Models\Translation\Locale;
 use StaticPHP\Utils\Models\Translation\Locales;
 use StaticPHP\Utils\Models\Translation\Store;
 
@@ -52,6 +53,63 @@ function check(string $what, bool $passed): void
     printf("  [%s] %s\n", $passed ? ' ok ' : 'FAIL', $what);
 }
 
+/**
+ * Everything after the first key registration is addressed by its id, so a null there is a
+ * broken run rather than one more failed check to report and carry on from.
+ */
+function keyId(?int $id, string $key): int
+{
+    if ($id === null) {
+        fwrite(STDERR, "fatal: the store did not return an id for \"{$key}\"\n");
+        exit(1);
+    }
+
+    return $id;
+}
+
+/**
+ * Same for a locale the configuration above is expected to contain.
+ */
+function locale(?Locale $locale, string $key): Locale
+{
+    if ($locale === null) {
+        fwrite(STDERR, "fatal: locale \"{$key}\" is missing from the configuration\n");
+        exit(1);
+    }
+
+    return $locale;
+}
+
+/**
+ * A single row as an associative array. PDOStatement::fetch() returns false at the end of a
+ * result set, which is not a row and must not be indexed into.
+ *
+ * @param \PDOStatement<mixed> $statement
+ * @return array<string, mixed>
+ */
+function one(\PDOStatement $statement): array
+{
+    $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+    return (is_array($row) ? $row : []);
+}
+
+/**
+ * A column read as an integer. Drivers disagree about whether a numeric column arrives as an
+ * int or as its decimal string, so neither can be assumed.
+ *
+ * @param array<string, mixed> $row
+ */
+function intField(array $row, string $column): int
+{
+    $value = $row[$column] ?? null;
+
+    return (is_int($value) || is_float($value) || is_string($value) ? (int) $value : 0);
+}
+
+/**
+ * @return array<string, mixed>
+ */
 function settings(string $connection): array
 {
     return [
@@ -148,6 +206,7 @@ function run(string $driver, string $dsn, string $user, string $password, string
     $first = $store->ensureKey('Log in');
     $second = $store->ensureKey('Log in');
     check('registering the same key twice returns one id', $first !== null && $first === $second);
+    $first = keyId($first, 'Log in');
 
     // Reserved words in mysql, which is why every identifier this class writes is quoted
     check('a key column named "key" round-trips', $store->keys()[0]['key'] === 'Log in');
@@ -155,8 +214,9 @@ function run(string $driver, string $dsn, string $user, string $password, string
     // The reason keys are addressed by hash: a unique index on utf8mb4 tops out at 768
     // characters in InnoDB, and source text is a whole sentence
     $long = str_repeat('A long source paragraph that nobody would index directly. ', 100);
-    $longId = $store->ensureKey($long);
-    check('a 5700 character key registers', $longId !== null);
+    $longKeyId = $store->ensureKey($long);
+    check('a 5700 character key registers', $longKeyId !== null);
+    $longId = keyId($longKeyId, $long);
     check('and comes back byte for byte', in_array($long, array_column($store->keys(), 'key'), true));
 
     $unicode = 'Sveiki, čau! Привет — 你好';
@@ -209,21 +269,21 @@ function run(string $driver, string $dsn, string $user, string $password, string
     */
 
     i18n::reset();
-    i18n::inject($config, $locales->byKey('lv_lv'), $store, new Catalog($store, 'none'));
+    i18n::inject($config, locale($locales->byKey('lv_lv'), 'lv_lv'), $store, new Catalog($store, 'none'));
 
     check('translate reads the stored value', i18n::translate('Log in') === 'Ienākt');
     check('an unknown string registers itself', i18n::translate('Sign out') === 'Sign out*');
     check('and lands in the database', $store->translations('lv_lv')['Sign out'] === 'Sign out*');
 
     i18n::reset();
-    i18n::inject($config, $locales->byKey('lv_en'), $store, new Catalog($store, 'none'));
+    i18n::inject($config, locale($locales->byKey('lv_en'), 'lv_en'), $store, new Catalog($store, 'none'));
     check('a missing translation falls back to the country default', i18n::translate('Sign out') === 'Sign out*');
 
     $plural = '{n, plural, zero{# failu} one{# fails} other{# faili}}';
     $store->setTranslation($plural, 'lv_lv', $plural);
 
     i18n::reset();
-    i18n::inject($config, $locales->byKey('lv_lv'), $store, new Catalog($store, 'none'));
+    i18n::inject($config, locale($locales->byKey('lv_lv'), 'lv_lv'), $store, new Catalog($store, 'none'));
     check('plurals follow the target language', i18n::format($plural, ['n' => 21]) === '21 fails');
     check('and its other categories', i18n::format($plural, ['n' => 11]) === '11 failu');
 
@@ -252,7 +312,7 @@ function run(string $driver, string $dsn, string $user, string $password, string
 
     $loose = new Store($connection, '', [], false);
     i18n::reset();
-    i18n::inject($config, $locales->byKey('lv_lv'), $loose, new Catalog($loose, 'none'));
+    i18n::inject($config, locale($locales->byKey('lv_lv'), 'lv_lv'), $loose, new Catalog($loose, 'none'));
 
     dropTables($connection);
 
@@ -332,15 +392,15 @@ function checkUpgrade(string $connection, string $basePath): void
     check('upgrade: the newest of a duplicate pair survives', $store->translations('lv_lv')['Log in'] === 'newest');
     check('upgrade: warmed copies are invalidated', $store->isFresh('lv_lv') === false);
 
-    $hash = Db::query('SELECT key_hash FROM i18n_keys WHERE "key" = ?', ['Log in'], $connection)
-        ->fetch(PDO::FETCH_ASSOC)['key_hash'];
-    check('upgrade: the backfilled hash is what php computes', $hash === hash('sha256', 'Log in'));
+    $keyRow = one(
+        Db::query('SELECT key_hash FROM i18n_keys WHERE "key" = ?', ['Log in'], $connection)
+    );
+    check('upgrade: the backfilled hash is what php computes', ($keyRow['key_hash'] ?? null) === hash('sha256', 'Log in'));
 
-    check('upgrade: updated is seeded from created', (int) Db::query(
-        'SELECT updated FROM i18n_translations WHERE key_id = 2',
-        [],
-        $connection
-    )->fetch(PDO::FETCH_ASSOC)['updated'] === 1001);
+    $updatedRow = one(
+        Db::query('SELECT updated FROM i18n_translations WHERE key_id = 2', [], $connection)
+    );
+    check('upgrade: updated is seeded from created', intField($updatedRow, 'updated') === 1001);
 
     $duplicated = true;
     try {
@@ -360,6 +420,8 @@ function checkUpgrade(string $connection, string $basePath): void
 
 /**
  * Raw rows for one key and language, to count them.
+ *
+ * @return array<int, array<string, mixed>>
  */
 function rows(string $connection, int $keyId, string $language): array
 {
