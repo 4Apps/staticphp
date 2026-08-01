@@ -211,7 +211,7 @@ RUN apt-get update -y \
     && touch /var/log/php-fpm.log \
     # * Runtime dirs run-prod.bash writes into. /srv/app needs to be owned by appuser
     # * too - COPY --chown only covers the contents, not the directory itself
-    && mkdir -p /srv/media/uploads /srv/app/static /srv/app/src/Application/Public/uploads \
+    && mkdir -p /srv/media/uploads /srv/app/static \
     && chown -R appuser:appuser /run/php /var/log/php-fpm.log /srv/media /srv/app \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
@@ -222,11 +222,16 @@ COPY --from=build --chown=appuser:appuser /srv/app/build /srv/app
 # Clean up files that are not needed at runtime
 RUN rm -f composer.json composer.lock phpcs.xml \
         package.json package-lock.json \
-        eslint.config.mjs rspack.config.js tsconfig.json \
+        eslint.config.mjs rspack.config.js tsconfig.base.json \
         README.md LICENSE AGENTS.md CLAUDE.md \
     && rm -rf docker resources \
-    # * Asset sources, already compiled into assets/dist
-    && rm -rf src/Application/Public/assets/src
+    # * Asset sources, already compiled into assets/dist. Per application, because the
+    # * name is whatever the project called it - see docker/app/scripts/app_name.bash
+    && rm -rf src/*/Public/assets/src src/*/tsconfig.json \
+    # * Upload target, created here rather than before the COPY: src/ does not exist yet
+    # * at that point, so the name cannot be globbed
+    && for d in src/*/Public; do mkdir -p "$d/uploads"; done \
+    && chown -R appuser:appuser src
 
 # Switch to non-root user
 USER appuser

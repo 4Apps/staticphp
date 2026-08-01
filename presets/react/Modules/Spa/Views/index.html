@@ -1,0 +1,15 @@
+{% extends "Spa/Views/layout.html" %}
+
+{% block title %}StaticPHP + React{% endblock %}
+
+{% block content %}
+    {#
+        The mount point. The csrf token rides along in a data attribute so the first POST
+        needs no round trip to fetch one - see assets/src/react/api.ts.
+    #}
+    <div id="react-root"
+         data-csrf-token="{{ csrf_token }}"
+         data-api-base="{{ api_base }}">
+        <p>Loading&hellip;</p>
+    </div>
+{% endblock %}

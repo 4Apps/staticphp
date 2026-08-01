@@ -20,8 +20,9 @@ export default tseslint.config(
             'vendor/**',
             'build/**',
             'dist/**',
-            'src/Application/Public/assets/dist/**',
-            'src/Application/Cache/**',
+            'src/*/Public/assets/dist/**',
+            'src/*/Cache/**',
+            'presets/**',
             '*.config.js',
             '*.config.mjs',
         ],
@@ -46,6 +47,7 @@ export default tseslint.config(
                 APP_VERSION: 'readonly',
                 APP_GIT_COMMIT_HASH: 'readonly',
                 APP_GIT_COMMIT_DATE: 'readonly',
+                APP_NAME: 'readonly',
                 // Set by the framework's own templates
                 BASE_URL: 'readonly',
                 BASE_URI: 'readonly',
@@ -55,7 +57,10 @@ export default tseslint.config(
         settings: {
             'import-x/resolver': {
                 typescript: {
-                    project: './tsconfig.json',
+                    // One config per application - the base/* alias points at the
+                    // importing application's own copy, so a single root config would
+                    // resolve every application against the first one's
+                    project: ['./src/*/tsconfig.json'],
                 },
             },
         },
@@ -70,7 +75,10 @@ export default tseslint.config(
         files: ['**/*.{ts,tsx}'],
         languageOptions: {
             parserOptions: {
-                project: './tsconfig.json',
+                // One project per application, matched by glob. A single root config
+                // cannot serve them: base/* has to resolve to the importing application's
+                // own copy, and tsconfig paths are resolved once, globally.
+                project: ['./src/*/tsconfig.json'],
                 tsconfigRootDir: import.meta.dirname,
             },
         },

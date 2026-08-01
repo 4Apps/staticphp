@@ -12,7 +12,7 @@ parameters:
     excludePaths:
         analyseAndScan:
             # Twig's compiled templates. Generated, gitignored, and not ours to fix.
-            - src/Application/Cache
+            - src/*/Cache/*
 
     # No baseline file, and it should stay that way - an application generated from this
     # inherits the config as its own starting point, and a baseline it did not create is

@@ -34,7 +34,7 @@
             "@composer update --lock --no-interaction"
         ],
         "setup": "@php scripts/post_create_project.php",
-        "test": "@php vendor/bin/phpunit -c src/Application/phpunit.xml",
+        "test": "for c in src/*/phpunit.xml; do [ -f \"$c\" ] || continue; php vendor/bin/phpunit -c \"$c\" || exit 1; done",
         "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src",
         "stan": "@php vendor/bin/phpstan analyse --no-progress --memory-limit=1G"
     }

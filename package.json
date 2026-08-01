@@ -19,23 +19,23 @@
   },
   "scripts": {
     "test": "./scripts/code_tests.bash",
-    "start": "php -S 0.0.0.0:8081 -t src/Application/Public",
+    "start": "php -S 0.0.0.0:8081 -t src/${APP:-Application}/Public",
     "setup": "npm run composer:init && npm run mkdirs && npm run copy-fonts",
     "composer:init": "[ -f composer.lock ] || composer install",
-    "mkdirs": "mkdir -p src/Application/Public/assets/dist/webfonts src/Application/Public/assets/dist/css src/Application/Public/assets/dist/js",
-    "copy-fonts": "mkdir -p src/Application/Public/assets/dist/webfonts; cp -r node_modules/\\@fortawesome/fontawesome-free/webfonts/* src/Application/Public/assets/dist/webfonts/;",
+    "mkdirs": "for a in src/*/Public/assets; do mkdir -p \"$a/dist/webfonts\" \"$a/dist/css\" \"$a/dist/js\"; done",
+    "copy-fonts": "for a in src/*/Public/assets; do mkdir -p \"$a/dist/webfonts\"; cp -r node_modules/@fortawesome/fontawesome-free/webfonts/* \"$a/dist/webfonts/\"; done",
     "build:info": "./scripts/build_info.bash",
     "build": "npm run copy-fonts && npm run css:build && npm run js:build",
     "build:dev": "npm run copy-fonts && npm run css:build && npm run js:build:dev",
     "js:build": "npm run typecheck && rspack build --mode production",
     "js:build:dev": "npm run typecheck && rspack build --mode development",
     "js:watch": "rspack build --watch --mode development",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src/Application/Public/assets/src",
-    "lint:fix": "eslint --fix src/Application/Public/assets/src",
-    "format": "prettier --write \"src/Application/Public/assets/src/**/*.{ts,js,scss}\"",
-    "format:check": "prettier --check \"src/Application/Public/assets/src/**/*.{ts,js,scss}\"",
-    "css:build": "sass --style=compressed --load-path=node_modules --source-map-urls=relative src/Application/Public/assets/src/index.scss src/Application/Public/assets/dist/css/index.css",
+    "typecheck": "for c in src/*/tsconfig.json; do [ -f \"$c\" ] || continue; echo \"typecheck ${c%/tsconfig.json}\"; tsc --noEmit -p \"$c\" || exit 1; done",
+    "lint": "eslint src/*/Public/assets/src",
+    "lint:fix": "eslint --fix src/*/Public/assets/src",
+    "format": "prettier --write \"src/*/Public/assets/src/**/*.{ts,tsx,js,jsx,scss}\"",
+    "format:check": "prettier --check \"src/*/Public/assets/src/**/*.{ts,tsx,js,jsx,scss}\"",
+    "css:build": "for f in src/*/Public/assets/src/index.scss; do [ -f \"$f\" ] || continue; sass --style=compressed --load-path=node_modules --source-map-urls=relative \"$f\" \"${f%/src/index.scss}/dist/css/index.css\"; done",
     "css:watch": "./scripts/watch_files_dev.bash css"
   },
   "dependencies": {
@@ -46,7 +46,8 @@
   },
   "browserslist": [
     "defaults",
-    "not ie 11"
+    "not ie 11",
+    "not op_mini all"
   ],
   "devDependencies": {
     "@eslint/js": "^10.0.1",

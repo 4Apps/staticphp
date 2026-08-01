@@ -1,0 +1,17 @@
+{
+    "description": "React single page app with a json api, served by a small twig shell",
+    "npm": {
+        "dependencies": {
+            "react": "^19.2.0",
+            "react-dom": "^19.2.0"
+        },
+        "devDependencies": {
+            "@types/react": "^19.2.0",
+            "@types/react-dom": "^19.2.0"
+        }
+    },
+    "next": [
+        "npm install            # pulls in react",
+        "npm run build:dev      # builds this app's css and js"
+    ]
+}

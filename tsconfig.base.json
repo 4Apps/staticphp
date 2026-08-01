@@ -1,0 +1,38 @@
+{
+    // Shared compiler settings only. Each application carries its own
+    // src/<App>/tsconfig.json that extends this one and adds the paths for its own
+    // sources - `base/*` has to resolve to the importing application's copy, and a paths
+    // array listing several applications does not do that. It is tried in order and the
+    // first hit wins, so every application would typecheck against the first one's base
+    // while rspack, whose alias is built per application, bundles the right one.
+    //
+    // Nothing is compiled from here. It is named tsconfig.base.json rather than
+    // tsconfig.json on purpose: a settings-only config is not a valid project, and at
+    // the root it would be the one that editors and eslint’s project service found
+    // for every application file. npm run typecheck loops the per-app configs.
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": [
+            "DOM",
+            "DOM.Iterable",
+            "ES2022"
+        ],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "sourceMap": true,
+        "allowJs": true,
+        "checkJs": false,
+        "noEmit": true,
+        "isolatedModules": false,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "resolveJsonModule": true
+    }
+}

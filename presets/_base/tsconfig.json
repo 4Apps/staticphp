@@ -1,0 +1,23 @@
+{
+    // Per application, so that `base/*` resolves to this application's own copy of
+    // assets/src/base/ts. Paths live here rather than in the root config because they are
+    // resolved once, globally - see the note there.
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "~/*": [
+                "./*"
+            ],
+            "base/*": [
+                "./Public/assets/src/base/ts/*"
+            ]
+        }
+    },
+    "include": [
+        "./Public/assets/src/**/*"
+    ],
+    "exclude": [
+        "./Public/assets/dist"
+    ]
+}

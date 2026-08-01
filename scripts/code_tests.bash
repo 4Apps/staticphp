@@ -61,8 +61,21 @@ run_php() {
     # The framework has its own suite in the staticphp-core repository. This one covers the
     # skeleton: that the front controller, the config and the demo module still work
     # against whatever version of the package is installed.
-    step "phpunit (Application)"
-    if ./vendor/bin/phpunit -c src/Application/phpunit.xml; then ok; else fail "Application tests"; fi
+    # One suite per application. Applications are generated from presets/ rather than
+    # tracked, so a fresh checkout legitimately has none - say so instead of passing an
+    # empty run off as green.
+    local suites=(src/*/phpunit.xml)
+    if [ ! -f "${suites[0]}" ]; then
+        step "phpunit"
+        fail "no application under src/ - run: composer setup"
+        return
+    fi
+
+    local suite
+    for suite in "${suites[@]}"; do
+        step "phpunit ($(basename "$(dirname "$suite")"))"
+        if ./vendor/bin/phpunit -c "$suite"; then ok; else fail "$(dirname "$suite") tests"; fi
+    done
 }
 
 run_js() {
@@ -71,14 +84,23 @@ run_js() {
         if npm ci --no-audit --no-fund; then ok; else fail "npm ci"; fi
     fi
 
+    local assets=(src/*/Public/assets/src)
+    if [ ! -d "${assets[0]}" ]; then
+        step "js"
+        fail "no application under src/ - run: composer setup"
+        return
+    fi
+
+    # Per application, because base/* has to resolve against the importing application's
+    # own copy - see the note in tsconfig.base.json
     step "tsc (types)"
-    if npx tsc --noEmit; then ok; else fail "typecheck"; fi
+    if npm run --silent typecheck; then ok; else fail "typecheck"; fi
 
     step "eslint"
-    if npx eslint src/Application/Public/assets/src; then ok; else fail "eslint"; fi
+    if npx eslint src/*/Public/assets/src; then ok; else fail "eslint"; fi
 
     step "prettier (format check)"
-    if npx prettier --check "src/Application/Public/assets/src/**/*.{ts,scss}"; then
+    if npx prettier --check "src/*/Public/assets/src/**/*.{ts,tsx,scss}"; then
         ok
     else
         fail "formatting - run: npm run format"

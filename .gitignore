@@ -6,18 +6,30 @@
 .env.dev
 /docker/*/data/
 
+# Applications
+###################################################################################################
+# SKELETON ONLY - scripts/post_create_project.php deletes this block when it generates a
+# project, so that a real application tracks its own src/ as usual.
+#
+# In this repository an application is a build artifact: presets/ is the source and
+# `composer setup` lays one down. Tracking a copy as well would mean every fix landing
+# twice, and would make `git pull` fight with whatever the application had become.
+/src/*/
+!/src/.gitkeep
+# END SKELETON ONLY
+
 # Build, Tmp, Cache and Bootstrap
 ###################################################################################################
 /build/
 /dist/
 /tmp/
 /vendor
-/src/Application/Cache/*/
-/src/Application/Public/assets/dist/
-/src/Application/Public/assets/fonts/
-/src/Application/Public/uploads/
-/src/Application/Public/xhprof/
-/src/Application/Public/docs/
+/src/*/Cache/*/
+/src/*/Public/assets/dist/
+/src/*/Public/assets/fonts/
+/src/*/Public/uploads/
+/src/*/Public/xhprof/
+/src/*/Public/docs/
 
 .phpunit.result.cache
 .phpunit.cache/

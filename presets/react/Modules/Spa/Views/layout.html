@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>{% block title %}StaticPHP{% endblock %}</title>
+
+    <link href="{{ base_url }}/assets/dist/css/index.css?{{ config.asset_version }}" rel="stylesheet" type="text/css" />
+
+    {% block headers %}{% endblock %}
+</head>
+
+<body>
+
+    {% block content %}{% endblock %}
+
+    {#
+        The bundle name is the entry filename - assets/src/app.tsx builds to app.bundle.js -
+        and the module's _bootstrap.php picks it through js_include.
+    #}
+    {% if config.debug == true %}
+        <script src="{{ base_url }}/assets/dist/js/vendors.bundle.js?{{ config.asset_version }}"></script>
+        {% if js_include %}
+            <script src="{{ base_url }}/assets/dist/js/{{ js_include }}.bundle.js?{{ config.asset_version }}"></script>
+        {% endif %}
+    {% else %}
+        <script src="{{ base_url }}/assets/dist/js/vendors.min.js?{{ config.asset_version }}"></script>
+        {% if js_include %}
+            <script src="{{ base_url }}/assets/dist/js/{{ js_include }}.min.js?{{ config.asset_version }}"></script>
+        {% endif %}
+    {% endif %}
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

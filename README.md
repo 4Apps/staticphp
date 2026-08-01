@@ -49,16 +49,23 @@ There are two ways to start using StaticPHP framework:
 
 1. `docker compose build develop`
 2. `docker compose up -d --remove-orphans develop`
-3. Open in vscode using [Remote containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+3. `./staticphp app add Application` - the container starts with no application; see
+   [Presets](#presets). The php server picks it up on its own once it exists.
+4. Open in vscode using [Remote containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
 **2. Using composer**
 
 Run `composer create-project 4apps/staticphp ./` for stable version and `composer create-project 4apps/staticphp ./ dev-develop` for latest development version from github. Composer will install all the dependecies for you.
 
-Afterwards composer runs `scripts/post_create_project.php`, which creates `.env` and
-`src/Application/.env` from their `.example` counterparts - both are gitignored, so they are
-not part of what composer unpacks. Existing files are left alone, so `composer setup` can be
-run again later without losing anything.
+Afterwards composer runs `scripts/post_create_project.php`, which asks which
+[preset](#presets) to start from, lays the application down as `src/Application`, and creates
+the `.env` files from their `.example` counterparts. Existing files are left alone, so
+`composer setup` can be run again later without losing anything.
+
+Note that `src/` is empty in a checkout of the skeleton itself: an application is generated
+from `presets/`, not tracked, so there is only ever one copy of it to maintain and
+`git pull` can never overwrite yours. `composer setup` creates one. In a project generated
+by `composer create-project` the application is tracked as usual.
 
 _[How to install composer?](https://getcomposer.org/doc/00-intro.md)_
 
@@ -82,6 +89,33 @@ Running under the cli server turns debugging on by default; configure that in
 `src/Application/Config/Config.php` through `$config['environment']` and `$config['debug']`.
 
 _\* Take a look at the home controller in `src/Application/Modules/Defaults/Controllers/Welcome.php` and the views in `src/Application/Modules/Defaults/Views/` for basic framework usage._
+
+### Presets
+
+An application starts from a preset - a pair of directory trees under `presets/` copied on
+top of each other, `_base` then the flavour:
+
+| Preset  | What you get                                                                        |
+| ------- | ----------------------------------------------------------------------------------- |
+| `twig`  | Server rendered views, the `Defaults` module, the menu components                     |
+| `react` | A react SPA plus a json api: `Spa` renders the shell, `Api` answers it, csrf wired up  |
+
+`composer create-project` asks which one to start with, and takes `twig` when it cannot ask -
+so a scripted or CI install never blocks. `SP_PRESET=react` answers it up front.
+
+Afterwards, add more with the cli:
+
+    ./staticphp app add Shop --preset=react
+
+Presets are plain directories. A preset's `preset.json` names the npm packages it needs,
+which are merged into the root `package.json`; everything else is just files. Adding one of
+your own means adding a directory - there is no registry to update.
+
+The react preset's shell is a twig view, so php still owns the page: it injects the csrf
+token and the api base into `<div id="react-root" data-…>`, which means the first POST needs
+no round trip to fetch a token. State changing requests are checked against
+`StaticPHP\Utils\Models\Csrf` and the front end sends `X-CSRF-Token`. Every client side
+route falls through to the same shell, so deep links and reloads work.
 
 ### Assets
 
@@ -120,6 +154,22 @@ applications:
 
     src/site1/Public/index.php    src/site1/Modules/Pasta/...
     src/site2/Public/index.php    src/site2/Modules/Pasta/...
+
+Create them with the cli - see [Presets](#presets) for what each one starts from:
+
+    ./staticphp app add Site2 --preset=twig
+    ./staticphp app list
+
+Nothing has to be registered afterwards. The toolchain finds applications by globbing
+`src/*`: rspack builds one compiler per application into that application's own
+`assets/dist`, `npm run typecheck` runs each `src/<App>/tsconfig.json`, and `composer test`
+runs each `src/<App>/phpunit.xml`. The per-application tsconfig is what makes `base/*`
+resolve to that application's own `assets/src/base/ts` - a single config listing every
+application resolves the alias once, globally, so every application would be typechecked
+against the first one's copy while the bundler used the right one.
+
+Composer and npm dependencies stay shared in the root `composer.json` and `package.json`;
+each application imports only what it uses.
 
 Point each vhost at the matching `index.php` and each application sees only its own
 modules. `Pasta\Controllers\Quality` means a different class in each, which is why module

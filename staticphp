@@ -19,6 +19,17 @@ $cliCommands = [
     'i18n' => StaticPHP\Utils\Models\Translation\Cli::class,
 ];
 
+// Creating an application is a skeleton concern rather than a framework one, so it lives
+// in scripts/ rather than being autoloaded from the vendor package. It is kept in a
+// generated project on purpose: presets/ ships with it, so an application can add a
+// second one later.
+if ($argv[1] === 'app' && is_file(__DIR__ . '/scripts/AppCli.php')) {
+    require __DIR__ . '/scripts/Presets.php';
+    require __DIR__ . '/scripts/AppCli.php';
+
+    exit(StaticPHP\Skeleton\AppCli::run(array_slice($argv, 2), __DIR__));
+}
+
 if (isset($cliCommands[$argv[1]])) {
     $class = $cliCommands[$argv[1]];
 

@@ -44,6 +44,10 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --optimize-autoloader
 
+      # No application is tracked - presets/ is the source - so lay one down first
+      - name: Scaffold the default application
+        run: ./staticphp app add Application --preset=twig
+
       - name: Run PHP code tests
         run: ./scripts/code_tests.bash php
 
@@ -62,6 +66,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Scaffold the default application
+        run: ./staticphp app add Application --preset=twig
+
       - name: Run JS code tests
         run: ./scripts/code_tests.bash js
 
@@ -69,6 +76,59 @@ jobs:
         run: |
           npm run css:build
           npx rspack build --mode production
+
+  presets:
+    name: Preset ${{ matrix.preset }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every preset is scaffolded and exercised. Preset sources sit outside src/, so
+        # nothing else in this workflow ever compiles them - without this job the flavour
+        # nobody used this quarter breaks quietly and is only found by the next person who
+        # reaches for it.
+        preset: [twig, react]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --no-progress --optimize-autoloader
+          npm ci --no-audit --no-fund
+
+      - name: Scaffold an application from the preset
+        run: ./staticphp app add Probe --preset=${{ matrix.preset }}
+
+      - name: Install anything the preset added to package.json
+        run: npm install --no-audit --no-fund
+
+      - name: Build its assets
+        run: npm run build:dev
+
+      - name: Run its tests
+        run: php vendor/bin/phpunit -c src/Probe/phpunit.xml
+
+      - name: It must answer over http
+        run: |
+          php -S 127.0.0.1:8123 -t src/Probe/Public &
+          for _ in $(seq 1 50); do
+            curl -fsS -o /dev/null http://127.0.0.1:8123/ && break
+            sleep 0.2
+          done
+          curl -fsS -o /dev/null -w 'GET / -> %{http_code}\n' http://127.0.0.1:8123/
 
   build-info:
     name: Build info

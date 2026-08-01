@@ -21,8 +21,79 @@
  * itself 4apps/staticphp, or a release script that offers to publish it.
  */
 
+require_once __DIR__ . '/Scaffolder.php';
+require_once __DIR__ . '/Presets.php';
+
+use StaticPHP\Skeleton\Presets;
+use StaticPHP\Skeleton\Scaffolder;
+
 $root = dirname(__DIR__);
 $newProject = in_array('--new-project', array_slice($argv, 1), true);
+
+/**
+ * The preset used when nobody says otherwise.
+ */
+const DEFAULT_PRESET = 'twig';
+
+/**
+ * Lays down the project's first application.
+ *
+ * No application is tracked in the skeleton - presets/ is the source - so there is nothing
+ * to replace here, only something to create. Re-running is safe: the scaffolder refuses to
+ * touch a directory that already exists.
+ *
+ * @param string $root Project root.
+ * @param string $preset Preset name.
+ * @return void
+ */
+function createFirstApp(string $root, string $preset): void
+{
+    $scaffolder = new Scaffolder($root);
+
+    if ($scaffolder->apps() !== []) {
+        echo '  skip    application (src/' . implode(', src/', $scaffolder->apps()) . " already present)\n";
+        return;
+    }
+
+    try {
+        foreach ($scaffolder->create('Application', $preset) as $line) {
+            echo $line . "\n";
+        }
+    } catch (\RuntimeException $e) {
+        echo '  failed  ' . $e->getMessage() . "\n";
+    }
+}
+
+/**
+ * Drops the block of .gitignore that only makes sense inside the skeleton.
+ *
+ * There, an application is a build artifact and tracking one would mean every fix landing
+ * twice. In a generated project the application is the whole point and belongs in git.
+ *
+ * @param string $root Project root.
+ * @return void
+ */
+function untrackSkeletonIgnores(string $root): void
+{
+    $path = $root . '/.gitignore';
+    $contents = @file_get_contents($path);
+    if ($contents === false) {
+        return;
+    }
+
+    $stripped = preg_replace(
+        '/^# SKELETON ONLY.*?^# END SKELETON ONLY\n/ms',
+        '',
+        $contents
+    );
+
+    if ($stripped === null || $stripped === $contents) {
+        return;
+    }
+
+    file_put_contents($path, $stripped);
+    echo "  reset   .gitignore (src/ is tracked in a real project)\n";
+}
 
 /**
  * Copies an example file to its real counterpart, optionally rewriting lines on the way.
@@ -176,9 +247,16 @@ function replaceFile(string $root, string $target, string $contents): void
 echo "Setting up the project:\n";
 
 createFromExample($root, '.env', 'applyLocalIds');
-createFromExample($root, 'src/Application/.env');
+
+// Asked before anything is written, because it decides what the application is. Composer
+// passes its stdin through and detaches it under --no-interaction, so Presets::choose()
+// prompts a human and silently takes the default in CI. `composer setup` runs this too,
+// which is what gives a fresh checkout of the skeleton an application to work with.
+createFirstApp($root, Presets::choose(new Scaffolder($root), DEFAULT_PRESET));
 
 if ($newProject === true) {
+    untrackSkeletonIgnores($root);
+
     // Publishes 4apps/staticphp to Packagist. An application tags its own releases however
     // it likes; what it must not inherit is a script offering to publish the skeleton.
     removeFile($root, 'scripts/version.bash');

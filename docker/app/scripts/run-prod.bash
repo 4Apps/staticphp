@@ -6,12 +6,19 @@
 
 THIS_DIR="$(dirname "$(realpath "$0")")"
 source "$THIS_DIR/console.bash"
+source "$THIS_DIR/app_name.bash"
+
+APP_NAME="$(resolve_app_name .)"
+if [ -z "$APP_NAME" ]; then
+    echo_error "No application found under ./src - set APP=<Name> if there are several"
+    exit 1
+fi
 
 echo_info "Sync static files"
-rsync -a --progress ./src/Application/Public/ ./static/
+rsync -a --progress "./src/${APP_NAME}/Public/" ./static/
 
 echo_info "Sync local files from upload forlder"
-rsync -a --progress ./src/Application/Public/uploads/ /srv/media/uploads/
+rsync -a --progress "./src/${APP_NAME}/Public/uploads/" /srv/media/uploads/
 
 
 ########################

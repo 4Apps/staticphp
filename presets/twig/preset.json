@@ -1,0 +1,7 @@
+{
+    "description": "Server rendered app using twig views",
+    "npm": {},
+    "next": [
+        "npm run build:dev      # builds this app's css and js"
+    ]
+}
