@@ -53,6 +53,11 @@ run_php() {
     step "phpcs (code style)"
     if ./vendor/bin/phpcs --standard=phpcs.xml src scripts; then ok; else fail "phpcs"; fi
 
+    # No baseline file here on purpose: the skeleton is small enough to keep clean, and an
+    # application generated from it inherits phpstan.neon as its own starting point.
+    step "phpstan (static analysis)"
+    if ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G; then ok; else fail "phpstan"; fi
+
     # The framework has its own suite in the staticphp-core repository. This one covers the
     # skeleton: that the front controller, the config and the demo module still work
     # against whatever version of the package is installed.

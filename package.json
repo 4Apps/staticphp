@@ -36,8 +36,7 @@
     "format": "prettier --write \"src/Application/Public/assets/src/**/*.{ts,js,scss}\"",
     "format:check": "prettier --check \"src/Application/Public/assets/src/**/*.{ts,js,scss}\"",
     "css:build": "sass --style=compressed --load-path=node_modules --source-map-urls=relative src/Application/Public/assets/src/index.scss src/Application/Public/assets/dist/css/index.css",
-    "css:watch": "./scripts/watch_files_dev.bash css",
-    "phpstan": "./vendor/bin/phpstan analyse --level 4 --autoload-file=./src/System/Modules/Core/Helpers/Autoload.php ./src/Application ./src/System"
+    "css:watch": "./scripts/watch_files_dev.bash css"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",

@@ -21,6 +21,7 @@
         "symfony/dotenv": "^8.0"
     },
     "require-dev": {
+        "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^13.0",
         "squizlabs/php_codesniffer": "^4.0"
     },
@@ -28,7 +29,13 @@
         "sort-packages": true
     },
     "scripts": {
+        "post-create-project-cmd": [
+            "@php scripts/post_create_project.php --new-project",
+            "@composer update --lock --no-interaction"
+        ],
+        "setup": "@php scripts/post_create_project.php",
         "test": "@php vendor/bin/phpunit -c src/Application/phpunit.xml",
-        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src"
+        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src",
+        "stan": "@php vendor/bin/phpstan analyse --no-progress --memory-limit=1G"
     }
 }

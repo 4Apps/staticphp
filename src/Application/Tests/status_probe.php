@@ -24,11 +24,9 @@ if (in_array('--prod', $argv, true)) {
 $_SERVER['argv'] = ['index.php', $url];
 $_SERVER['argc'] = 2;
 
-$body = '';
-
 // The front controller exits on the error paths, so the body is captured from a shutdown
 // function rather than after the require
-register_shutdown_function(function () use (&$body) {
+register_shutdown_function(function () {
     $captured = ob_get_level() > 0 ? (string) ob_get_clean() : '';
     $status = http_response_code();
 
