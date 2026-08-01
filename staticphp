@@ -12,12 +12,21 @@ if (count($argv) == 1) {
 
 // These are dispatched here, before the routing bootstrap at the bottom of this file.
 // Routing config has no notion of a cli-only route, so reaching them through a controller
-// would also expose them over http - on tools whose job is to change the schema and delete
-// translation keys.
-$cliCommands = [
-    'migrate' => StaticPHP\Utils\Models\Migrations\Cli::class,
-    'i18n' => StaticPHP\Utils\Models\Translation\Cli::class,
-];
+// would also expose them over http - on tools whose job is to change the schema, delete
+// translation keys and delete history.
+//
+// The framework's own commands come from the package rather than being listed here, so
+// adding one there does not need a matching release of this skeleton. Application commands
+// go in $localCommands and win on a name collision.
+$localCommands = [];
+
+if (class_exists(StaticPHP\Core\Cli::class) === false) {
+    fwrite(STDERR, "error: this skeleton needs a framework that exports StaticPHP\\Core\\Cli\n");
+    fwrite(STDERR, "run: composer update 4apps/staticphp-core\n");
+    exit(1);
+}
+
+$cliCommands = $localCommands + StaticPHP\Core\Cli::commands();
 
 // Creating an application is a skeleton concern rather than a framework one, so it lives
 // in scripts/ rather than being autoloaded from the vendor package. It is kept in a
