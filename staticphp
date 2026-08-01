@@ -8,18 +8,21 @@ if (count($GLOBALS['argv']) == 1) {
     exit -1;
 }
 
-// Migrations are dispatched here, before the routing bootstrap at the bottom of this file.
+// These are dispatched here, before the routing bootstrap at the bottom of this file.
 // Routing config has no notion of a cli-only route, so reaching them through a controller
-// would also expose them over http - on a tool whose entire job is to change the schema.
-// The class is required directly because the autoloader that would normally find it does
-// not exist yet.
-if ($GLOBALS['argv'][1] === 'migrate') {
-    require dirname(__FILE__) . '/src/System/Modules/Utils/Models/Migrations/Cli.php';
+// would also expose them over http - on tools whose job is to change the schema and delete
+// translation keys. The classes are required directly because the autoloader that would
+// normally find them does not exist yet.
+$cliCommands = [
+    'migrate' => ['Migrations', 'System\Modules\Utils\Models\Migrations\Cli'],
+    'i18n' => ['Translation', 'System\Modules\Utils\Models\Translation\Cli'],
+];
 
-    exit(System\Modules\Utils\Models\Migrations\Cli::run(
-        array_slice($GLOBALS['argv'], 2),
-        dirname(__FILE__)
-    ));
+if (isset($cliCommands[$GLOBALS['argv'][1]])) {
+    [$directory, $class] = $cliCommands[$GLOBALS['argv'][1]];
+    require dirname(__FILE__) . "/src/System/Modules/Utils/Models/{$directory}/Cli.php";
+
+    exit($class::run(array_slice($GLOBALS['argv'], 2), dirname(__FILE__)));
 }
 
 // Go through all arguments

@@ -128,6 +128,61 @@ Settings live in `$config['migrations']` (directory, tracking table, which conne
 `scripts/migrations_integration.php` exercises the engine against a live Postgres and
 MySQL; the phpunit suite covers it against SQLite and needs no server.
 
+### Translations (i18n)
+
+Source text is the key. Templates read as English, an unseen string registers itself the
+first time a page asks for it, and an untranslated string shows up as `Log in*` rather than
+as a dotted path nobody can read.
+
+    ./staticphp i18n install          # write the schema into src/Application/Migrations
+    ./staticphp migrate apply         # create the tables
+    ./staticphp i18n status           # languages, and how much of each is translated
+    ./staticphp i18n missing lv_lv    # what is left
+    ./staticphp i18n set lv_lv "Log in" "Pieslēgties"
+    ./staticphp i18n export lv_lv --out=lv.csv
+    ./staticphp i18n import lv_lv lv.csv
+    ./staticphp i18n scan             # compare the source tree against the database
+    ./staticphp i18n status --check   # exit 1 if anything is untranslated (for CI)
+
+Call `i18n::init()` from a bootstrap hook. With no arguments the country and language come
+from the url prefix (`/lv-en/...`); a request that carries none is redirected to the
+language its `Accept-Language` header asks for, or to the first configured one.
+
+In templates:
+
+    {{ 'Log in'|translate }}
+    {{ _('Hello %name%', {'%name%': user.name}) }}
+    {{ _f('{n, plural, zero{# failu} one{# fails} other{# faili}}', {'n': count}) }}
+    {{ i18n_number(1234.5, 2) }}   {{ i18n_currency(99, 'EUR') }}   {{ i18n_date(date) }}
+    <link rel="alternate" hreflang="{{ a.hreflang }}" href="{{ a.url }}"> {# for a in i18n.alternates #}
+
+**Plurals go through ICU MessageFormat**, so the categories come from the target language:
+Latvian has three and Russian four, and 21 is singular in both. A two-form `ngettext` gets
+that wrong, which is why there isn't one.
+
+**Nothing is marked html-safe.** Twig escapes the translation and every value substituted
+into it. A translation that really does carry markup needs an explicit `|raw`.
+
+Numbers, dates and currency are formatted by ICU using a locale derived as
+`<language>_<COUNTRY>` — so an English page on the Latvian site reads in English and formats
+the Latvian way. Set `locale` on a country in `$config['i18n']['available']` to override it.
+
+Strings are loaded per language and cached; a per-language row in `i18n_cached` is what
+tells every application server the copy is still good, so a translator saving one string
+invalidates all of them without any of them being told. If the database is unreachable the
+page renders source strings and logs, rather than failing.
+
+Postgres, MySQL and SQLite are supported. Keys are addressed by a sha256 of the source
+text, because source text is a whole sentence and MySQL cannot index one.
+
+Upgrading a database that has the pre-2.0 i18n tables: `./staticphp i18n install --upgrade`
+writes a migration that dedupes `i18n_translations`, adds the unique constraint that stops
+the duplicates coming back, and backfills the key hashes. **It deletes rows — read it and
+take a dump first.** Postgres only; the old schema never shipped for anything else.
+
+`scripts/i18n_integration.php` exercises all of this against a live Postgres and MySQL,
+including the upgrade path.
+
 ### Basic Nginx configuration
 
     server {
@@ -192,7 +247,7 @@ MySQL; the phpunit suite covers it against SQLite and needs no server.
 
 ## TODO and ideas
 
--   i18n and cache class usage guide
+-   Cache class usage guide
 -   Cache class: postgres, mysql and sql lite support (who knows, somebody may want this:)
 -   Write usage guide
 -   Rewrite all sessions classes into one by adding an option to choose from session backend to use, possibly allowing to use multiple backends (e.g. memcached -> sql).

@@ -13,6 +13,15 @@ class ExtendedDateTime extends \DateTime
     public static string | null $timeFormat = null;
 
     /**
+     * Locale handed to ICU, overriding whatever setlocale() reports.
+     *
+     * i18n::init() sets this. Without it the locale comes from setlocale(LC_TIME, 0), which
+     * stays "C" unless something set it - and the locale has to be generated in the
+     * container for setlocale() to do anything at all, whereas ICU brings its own data.
+     */
+    public static string | null $defaultLocale = null;
+
+    /**
      * Lazily built IntlDateFormatters, keyed by the accessor that owns them.
      *
      * Building one loads ICU's locale bundle, which costs roughly 700 microseconds for the
@@ -40,7 +49,7 @@ class ExtendedDateTime extends \DateTime
         }
         $timeZone = new \DateTimeZone($timeZoneString);
 
-        $locale = setlocale(LC_TIME, 0);
+        $locale = self::$defaultLocale ?? setlocale(LC_TIME, 0);
         $this->locale = explode('.', (string) $locale)[0];
         $this->timeZoneString = $timeZoneString;
 

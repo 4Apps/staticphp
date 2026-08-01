@@ -69,6 +69,15 @@ class Db
      */
     public static function init(string $name = 'default', ?array $config = null): PDO
     {
+        // Don't make a new connection if there is one connected with the name.
+        //
+        // Checked before the configuration is looked up, not after: an open connection needs
+        // no configuration to hand back, and requiring one meant a connection opened by
+        // passing $config directly could not afterwards be reached by name alone.
+        if (!empty(self::$dbLinks[$name])) {
+            return self::$dbLinks[$name];
+        }
+
         // Check if there is such configuration
         if (empty($config)) {
             if (empty(Config::$items['db']['pdo'][$name])) {
@@ -76,11 +85,6 @@ class Db
             }
 
             $config = Config::$items['db']['pdo'][$name];
-        }
-
-        // Don't make a new connection if there is one connected with the name
-        if (!empty(self::$dbLinks[$name])) {
-            return self::$dbLinks[$name];
         }
 
         // Set config

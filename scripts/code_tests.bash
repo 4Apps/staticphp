@@ -40,14 +40,16 @@ fail() {
 run_php() {
     step "php -l (syntax)"
     # -print0/-0 so paths with spaces survive
-    if find src -name '*.php' -type f -print0 | xargs -0 -n1 -P4 php -l > /dev/null; then
+    # scripts/ too: the integration scripts are not covered by any suite, so a rename in
+    # src/ that breaks one of them would otherwise go unnoticed until somebody ran it
+    if find src scripts -name '*.php' -type f -print0 | xargs -0 -n1 -P4 php -l > /dev/null; then
         ok
     else
         fail "php syntax errors"
     fi
 
     step "phpcs (code style)"
-    if ./vendor/bin/phpcs --standard=phpcs.xml src; then ok; else fail "phpcs"; fi
+    if ./vendor/bin/phpcs --standard=phpcs.xml src scripts; then ok; else fail "phpcs"; fi
 
     step "phpunit (System)"
     if ./vendor/bin/phpunit -c src/System/phpunit.xml; then ok; else fail "System tests"; fi

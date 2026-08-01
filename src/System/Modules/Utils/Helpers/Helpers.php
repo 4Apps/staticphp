@@ -35,14 +35,23 @@ function trimChars(&$value, $character_mask = " \t\n\r\0\x0B")
 /**
  * Locale specific number_format
  *
+ * Prefers the active i18n locale over localeconv(). localeconv() reads LC_NUMERIC, which
+ * nothing in the framework sets and which does nothing at all unless the locale has been
+ * generated in the container - so on a stock image this formatted every number the C way
+ * while the rest of the page was in Latvian.
+ *
  * @param int|float $number
  * @param int $decimals Precision
  * @return string
  */
 function localeNumberFormat($number, $decimals = 2)
 {
+    if (\System\Modules\Utils\Models\i18n::isInitialised() === true) {
+        return \System\Modules\Utils\Models\i18n::number($number ?? 0, $decimals);
+    }
+
     $locale = localeconv();
-    return number_format($number, $decimals, $locale['decimal_point'], $locale['thousands_sep']);
+    return number_format($number ?? 0, $decimals, $locale['decimal_point'], $locale['thousands_sep']);
 }
 
 

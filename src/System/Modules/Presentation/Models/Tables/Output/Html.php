@@ -81,8 +81,16 @@ class Html implements OutputInterface
         return ' value="' . self::escape($value) . '"';
     }
 
+    /**
+     * Prefers the active i18n locale over localeconv(), which reads an LC_NUMERIC nothing
+     * in the framework sets.
+     */
     public function localeNumberFormat($number, $decimals = 2)
     {
+        if (\System\Modules\Utils\Models\i18n::isInitialised() === true) {
+            return \System\Modules\Utils\Models\i18n::number($number ?? 0, $decimals);
+        }
+
         $locale = localeconv();
         return number_format($number ?? 0, $decimals, $locale['decimal_point'], $locale['thousands_sep']);
     }
