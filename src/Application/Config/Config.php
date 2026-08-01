@@ -56,7 +56,43 @@ $config['environment'] = (
     : (!empty($_ENV['APP_ENV']) ? $_ENV['APP_ENV'] : 'unknown')
 );
 $config['debug']       = ($config['environment'] !== 'dev' ? false : true);
-$config['debug_ips']   = ['::1', '127.0.0.1'];
+
+// Who else may see debug output - the query log, the timing panel, stack traces. Only
+// consulted when 'debug' above is false, and it is the application's decision rather than
+// the framework's: staticphp deliberately makes no trust decision of its own here.
+//
+// It runs during bootstrap, before sessions, the database and routing exist, because
+// query logging has to be armed before the first query runs. So it can read $_SERVER,
+// $_COOKIE and config, and nothing else - keep it cheap and keep it honest. Anything it
+// throws is treated as "no".
+//
+// A signed cookie is the natural fit: real authentication, no session needed, and it
+// works from any network. Hand yourself one out of a controller behind your own login.
+//
+// php's variables_order is GPCS here, so $_ENV holds what dotenv put there - the .env
+// file - and not the process environment. getenv() is the other way round, since dotenv
+// does not putenv() by default. Read both, or the gate silently stays shut depending on
+// where the secret was set.
+//
+// $config['debug_check'] = function (): bool {
+//     $secret = $_ENV['DEBUG_SECRET'] ?? getenv('DEBUG_SECRET') ?: '';
+//     $token = $_COOKIE['sp_debug'] ?? '';
+//     if ($token === '' || $secret === '') {
+//         return false;
+//     }
+//
+//     return hash_equals(hash_hmac('sha256', 'debug', $secret), $token);
+// };
+//
+// An address list is what this used to be, and is available if you still want it - but
+// note it is only as trustworthy as trust_proxy_headers and the proxy in front:
+//
+// $config['debug_check'] = fn(): bool => in_array(
+//     StaticPHP\Core\Models\Router::clientIp(),
+//     ['::1', '127.0.0.1'],
+//     true
+// );
+$config['debug_check'] = null;
 
 /*
 | Logging
@@ -135,7 +171,11 @@ $config['error_pages'] = [
 $config['request_uri']  = & $_SERVER['REQUEST_URI'];
 $config['query_string'] = & $_SERVER['QUERY_STRING'];
 $config['script_name']  = & $_SERVER['SCRIPT_NAME'];
-$config['client_ip']    = & $_SERVER['REMOTE_ADDR'];
+
+// NULL for auto detect: REMOTE_ADDR, or the client behind a proxy when trust_proxy_headers
+// is on - see below. Bind it to $_SERVER['REMOTE_ADDR'] by reference to pin it to the
+// connection regardless of what any header claims.
+$config['client_ip']    = null;
 
 /*
 |--------------------------------------------------------------------------
@@ -151,6 +191,50 @@ $config['client_ip']    = & $_SERVER['REMOTE_ADDR'];
 |--------------------------------------------------------------------------
 */
 $config['allowed_hosts'] = [];
+
+/*
+|--------------------------------------------------------------------------
+| Trust proxy headers
+|
+| Enable when a reverse proxy terminates tls or listens on a different port than this
+| application does. X-Forwarded-Proto then decides whether the request counts as
+| encrypted, instead of the connection this process sees - which behind a proxy describes
+| the internal hop. Without it a container on plain http port 8080 behind an https proxy
+| advertises itself as https://example.com:8080/, and its session cookie loses the Secure
+| flag on exactly the deployment where it matters most.
+|
+| X-Forwarded-Port is honoured too, but is rarely needed: nginx and traefik set the proto
+| header by default and the port one only when asked, so the scheme's own default port is
+| assumed when it is absent.
+|
+| It also decides where client_ip comes from: REMOTE_ADDR is the proxy's own address, so
+| without this every request appears to come from the proxy - in the logs, in audit
+| trails, and in anything an application does per client.
+|
+| Off by default because all of these headers are client supplied unless the proxy
+| overwrites them. Only turn it on when the proxy is the sole route to the application.
+|--------------------------------------------------------------------------
+*/
+$config['trust_proxy_headers'] = false;
+
+/*
+|--------------------------------------------------------------------------
+| Trusted proxy hops
+|
+| How many proxies sit in front. Only consulted when trust_proxy_headers is on.
+|
+| X-Forwarded-For is appended to rather than overwritten - nginx's
+| $proxy_add_x_forwarded_for tacks the peer it saw onto whatever the client sent - so the
+| leftmost entry is whatever the client felt like claiming. Entries are counted from the
+| right instead, one per hop: with a single proxy the rightmost is the address it saw
+| itself and cannot be forged.
+|
+| 1 for one reverse proxy. 2 when something else fronts that, a cdn or a load balancer.
+| Counting too few is safe and reports the nearest proxy; counting too many walks back
+| into the part of the header a client can write.
+|--------------------------------------------------------------------------
+*/
+$config['trusted_proxy_hops'] = 1;
 
 /*
 |--------------------------------------------------------------------------

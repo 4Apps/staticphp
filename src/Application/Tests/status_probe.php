@@ -13,9 +13,9 @@
 $url = $argv[1] ?? '';
 
 if (in_array('--prod', $argv, true)) {
-    // The public error pages are only reachable with debug off, and debug is forced back
-    // on for anything coming from an address in debug_ips - which every cli request looks
-    // like, since REMOTE_ADDR is unset and the lookup defaults to localhost
+    // The public error pages are only reachable with debug off. A non-local REMOTE_ADDR
+    // is set because an application's debug_check may well be an address list, and every
+    // cli request otherwise looks local
     define('SP_ENVIRONMENT', 'prod');
     $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
 }

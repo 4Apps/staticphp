@@ -4,8 +4,69 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "214365587223546df9d12b394b09eabb",
+    "content-hash": "a68d70174fa601e1d433bacde7a5307c",
     "packages": [
+        {
+            "name": "4apps/staticphp-core",
+            "version": "v2.0.329",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/gintsmurans/staticphp-core.git",
+                "reference": "026269f86a24ea4a455b9f040f5820d635668336"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/gintsmurans/staticphp-core/zipball/026269f86a24ea4a455b9f040f5820d635668336",
+                "reference": "026269f86a24ea4a455b9f040f5820d635668336",
+                "shasum": ""
+            },
+            "require": {
+                "ext-intl": "*",
+                "ext-mbstring": "*",
+                "ext-pdo": "*",
+                "php": ">=8.4 <9"
+            },
+            "require-dev": {
+                "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
+                "phpunit/phpunit": "^13.0",
+                "squizlabs/php_codesniffer": "^4.0",
+                "twig/twig": "^3.0"
+            },
+            "suggest": {
+                "ext-apcu": "Required by Utils\\Models\\Cache\\CacheApcu and Utils\\Models\\Sessions\\SessionsApcu.",
+                "ext-iconv": "Required by Fv::translit() and Fv::setFriendly(); nothing else uses it.",
+                "ext-memcached": "Required by Utils\\Models\\Cache\\CacheMemcached and Utils\\Models\\Sessions\\SessionsMemcached.",
+                "ext-pdo_mysql": "MySQL/MariaDB connections and the mysql migration driver.",
+                "ext-pdo_pgsql": "Postgres connections, Utils\\Models\\Sessions\\SessionsPgsql, and the postgres migration driver.",
+                "ext-pdo_sqlite": "SQLite connections and the sqlite migration driver.",
+                "ext-redis": "Required by Utils\\Models\\Cache\\CacheRedis and Utils\\Models\\Sessions\\SessionsRedis.",
+                "mongodb/mongodb": "Required by Utils\\Models\\Sessions\\SessionsMongoDb.",
+                "phpoffice/phpspreadsheet": "Required by Presentation\\Models\\Tables\\Output\\Excel. Nothing else in the package touches it, so a table that only renders html does not need it.",
+                "twig/twig": "Template engine for the view layer. Leave it out of an api-only application - composer's files autoload is eager, so twig and the symfony polyfills it pulls in load eight files on every request whether or not a template is ever rendered."
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "StaticPHP\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Gints Murans",
+                    "email": "gm@gm.lv"
+                }
+            ],
+            "description": "A lightweight PHP framework",
+            "support": {
+                "issues": "https://github.com/gintsmurans/staticphp-core/issues",
+                "source": "https://github.com/gintsmurans/staticphp-core/tree/v2.0.329"
+            },
+            "time": "2026-08-01T13:50:45+00:00"
+        },
         {
             "name": "symfony/deprecation-contracts",
             "version": "v3.7.1",
@@ -2406,7 +2467,10 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=8.4"
+        "php": ">=8.4",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "ext-pdo": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"
