@@ -1,0 +1,31 @@
+parameters:
+    paths:
+        - src
+        - scripts
+        - staticphp
+
+    excludePaths:
+        analyseAndScan:
+            # Twig's compiled templates. Generated, gitignored, and not ours to fix.
+            - src/Application/Cache
+
+    # The skeleton is small enough to hold at this level with no baseline file, and it should
+    # stay that way - an application generated from it inherits this config as its own
+    # starting point. The framework itself is analysed in the staticphp-core repository.
+    level: 5
+
+    ignoreErrors:
+        # BASE_PATH, APP_PATH and the rest are defined by StaticPHP\Core\Bootstrap before any
+        # config file is read. Nothing static can see that, and a stub defining them would
+        # only be a second place to keep the list correct.
+        -
+            identifier: constant.notFound
+            path: src/Application/Config/*.php
+
+        # $checks and $failures are globals the check() helpers increment. phpstan analyses
+        # the top level scope only, where they are still the literal 0 they were assigned.
+        -
+            message: '#Strict comparison using === between 0 and 0 will always evaluate to true#'
+            paths:
+                - scripts/i18n_integration.php
+                - scripts/migrations_integration.php

@@ -6,9 +6,8 @@
             "DOM.Iterable",
             "ES2022"
         ],
-        "jsx": "react-jsx",
-        "module": "ES2022",
-        "moduleResolution": "node",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
         "baseUrl": "./src",
         "paths": {
             "~/*": [
@@ -16,10 +15,9 @@
             ],
             "base/*": [
                 "./Application/Public/assets/src/base/ts/*"
-            ],
+            ]
         },
         "sourceMap": true,
-        "declaration": true,
         "allowJs": true,
         "checkJs": false,
         "noEmit": true,
@@ -35,10 +33,12 @@
         "resolveJsonModule": true
     },
     "include": [
-        "./src/**/*",
+        "./src/Application/Public/assets/src/**/*"
     ],
     "exclude": [
         "node_modules",
-        "build"
+        "build",
+        "vendor",
+        "src/Application/Public/assets/dist"
     ]
 }

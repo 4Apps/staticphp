@@ -3,9 +3,26 @@
 
 define('SAPI', 'cli');
 
+require __DIR__ . '/vendor/autoload.php';
+
 if (count($GLOBALS['argv']) == 1) {
     echo "Missing arguments\n";
     exit -1;
+}
+
+// These are dispatched here, before the routing bootstrap at the bottom of this file.
+// Routing config has no notion of a cli-only route, so reaching them through a controller
+// would also expose them over http - on tools whose job is to change the schema and delete
+// translation keys.
+$cliCommands = [
+    'migrate' => StaticPHP\Utils\Models\Migrations\Cli::class,
+    'i18n' => StaticPHP\Utils\Models\Translation\Cli::class,
+];
+
+if (isset($cliCommands[$GLOBALS['argv'][1]])) {
+    $class = $cliCommands[$GLOBALS['argv'][1]];
+
+    exit($class::run(array_slice($GLOBALS['argv'], 2), __DIR__));
 }
 
 // Go through all arguments
@@ -62,8 +79,9 @@ $_SERVER['HTTP_USER_AGENT'] = (
 );
 $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
 
-// Bootstrap
-$basePath = dirname(__FILE__).'/src';
-$systemPath = "{$basePath}/System";
-$bootstrapPath = "{$systemPath}/Modules/Core/Helpers/Bootstrap.php";
-require $bootstrapPath;
+// Bootstrap. --project may already have pinned this; the skeleton's own app is the default.
+if (defined('PUBLIC_PATH') === false) {
+    define('PUBLIC_PATH', __DIR__ . '/src/Application/Public');
+}
+
+require StaticPHP\Core\Bootstrap::FILE;

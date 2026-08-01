@@ -1,2 +1,42 @@
+# Version control and CI
+.git/
+.github/
+.gitignore
+.dockerignore
+
+# Editor and tooling
+# * .prettierrc and .editorconfig stay in: the testing stage runs the format check, and
+#   without them prettier silently falls back to its own defaults (2-space, double quotes,
+#   trailing commas) and reports every file as misformatted
+.vscode/
+.devcontainer/
+.agent/
+.claude/
+
+# Dependencies - reinstalled inside the image
+/node_modules
+/vendor
+
+# Local compose environment - src/Application/.env* is intentionally kept, the build
+# and production stages need it
+/.env
+/.env.*
+docker-compose.yml
+
+# Build, tmp and cache output
 /build
 /dist
+/tmp
+/src/Application/Cache/*/
+/src/Application/Public/assets/dist/
+/src/Application/Public/uploads/
+/src/Application/Public/docs/
+/src/Application/Public/xhprof/
+.build_info.json
+.phpunit.result.cache
+.phpunit.cache/
+.phpcs.cache
+
+# OS generated files
+.DS_Store
+Thumbs.db

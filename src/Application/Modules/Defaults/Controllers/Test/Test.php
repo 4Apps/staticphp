@@ -2,8 +2,8 @@
 
 namespace Defaults\Controllers\Test;
 
-use System\Modules\Core\Models\Router;
-use System\Modules\Core\Controllers\Controller;
+use StaticPHP\Core\Models\Router;
+use StaticPHP\Core\Controllers\Controller;
 
 class Test extends Controller
 {

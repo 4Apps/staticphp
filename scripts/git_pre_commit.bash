@@ -40,67 +40,21 @@ echo
 #echo
 
 
-# Trying to compile all php files
-if [ $(git diff-index --cached --name-only --diff-filter=ACMR $COMMIT | grep \\.php | wc -l) -gt 0 ]; then
-    echo "*PHP file(-s) changed, running lint.."
-
-    for file in $(git diff-index --cached --name-only --diff-filter=ACMR $COMMIT | grep \\.php); do
-        php -l $file > /dev/null
-
-        if [ "$?" != "0" ]; then
-            echo "!!! ERROR: $COMMIT $file"
-            exit 1
-        fi
-    done
-
-    echo " Done"
-    echo
+# Run the same checks CI runs, so a green commit means a green pipeline.
+# Asset builds used to happen here, which made every commit take 20+ seconds and put
+# generated files in the commit; that belongs in the build, not the hook.
+echo "*Running code tests.. "
+if [ -f /.dockerenv ]; then
+    ./scripts/code_tests.bash
+else
+    docker compose run --rm develop /srv/app/scripts/code_tests.bash
 fi
-
-
-# Compile css
-if [ $(git diff-index --cached --name-only $COMMIT | grep \\.scss | wc -l) -gt 0 ]; then
-    echo "*SCSS file(s) modified, compressing.. "
-    cd $BASE_PATH
-    npm run css:build
-
-    if [ "$?" != "0" ]; then
-        echo
-        echo "Something went wrong while trying to minify css files"
-        echo
-        exit 1
-    fi
-
-    echo " Done"
-    echo
-fi
-
-
-# Compile js
-if [ $(git diff-index --cached --name-only $COMMIT | grep -E "\.(js|ts)$" | wc -l) -gt 0 ]; then
-    echo "*JS file(s) modified, compressing.. "
-    cd $BASE_PATH
-    npm run js:build
-
-    if [ "$?" != "0" ]; then
-        echo
-        echo "Something went wrong while trying to minify js files"
-        echo
-        exit 1
-    fi
-
-    echo " Done"
-    echo
-fi
-
-
-# Bump patch version
-echo "*Bumping patch version.. "
-./scripts/bump_version.bash 1
 if [ "$?" != "0" ]; then
-    echo "!!! ERROR !!!"
+    echo "!!! ERROR: code tests failed !!!"
     exit 1
 fi
+echo " Done"
+echo
 
 
 # Test for whitespace errors

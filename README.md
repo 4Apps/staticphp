@@ -1,15 +1,42 @@
-[![apidocs](http://img.shields.io/badge/api-master--dev-brightgreen.svg)](http://staticphp.gm.lv/docs/) [![packagist](http://img.shields.io/badge/packagist-master--dev-brightgreen.svg)](https://packagist.org/packages/4apps/staticphp)
+[![packagist](https://img.shields.io/packagist/v/4apps/staticphp.svg)](https://packagist.org/packages/4apps/staticphp) [![license](https://img.shields.io/packagist/l/4apps/staticphp.svg)](LICENSE)
 
 ![logo](resources/logo_50.png)
 
 # StaticPHP
 
-Simple, modular php framework. **README.md needs to be updated.**
+Simple, modular php framework.
 
 ### Requirements
 
--   PHP 8.1+
--   Twig 3.0+
+-   PHP 8.4+
+-   Twig 3.0+ (optional, see [Packages](#packages))
+
+### Packages
+
+StaticPHP ships as two composer packages, the way `laravel/laravel` and
+`laravel/framework` are split:
+
+| Package                | Type      | Contents                                                       |
+| ---------------------- | --------- | -------------------------------------------------------------- |
+| `4apps/staticphp-core` | `library` | The framework. `composer require` this from an application.      |
+| `4apps/staticphp`      | `project` | This skeleton. `composer create-project` this to start a site.   |
+
+An existing site does not vendor a copy of the framework any more:
+
+```bash
+composer require 4apps/staticphp-core
+```
+
+Everything the framework provides lives under the `StaticPHP\` namespace and is resolved
+by composer's PSR-4 autoloader. Application code keeps its own conventions - a module name
+is its own namespace root (`Pasta\Controllers\Quality`), resolved at runtime against the
+application that served the request. See [Applications and modules](#applications-and-modules).
+
+Twig is a `suggest` of the core package rather than a requirement, so an api-only
+deployment can leave it out entirely. See [Views](#views).
+
+Upgrading from 1.x: see [UPGRADE.md](UPGRADE.md). Earlier history is in
+[CHANGELOG.md](CHANGELOG.md).
 
 ### Installation
 
@@ -26,7 +53,12 @@ There are two ways to start using StaticPHP framework:
 
 **2. Using composer**
 
-Run `composer create-project 4apps/staticphp ./` for stable version and `composer create-project 4apps/staticphp ./ master-dev` for latest development version from github. Composer will install all the dependecies for you.
+Run `composer create-project 4apps/staticphp ./` for stable version and `composer create-project 4apps/staticphp ./ dev-develop` for latest development version from github. Composer will install all the dependecies for you.
+
+Afterwards composer runs `scripts/post_create_project.php`, which creates `.env` and
+`src/Application/.env` from their `.example` counterparts - both are gitignored, so they are
+not part of what composer unpacks. Existing files are left alone, so `composer setup` can be
+run again later without losing anything.
 
 _[How to install composer?](https://getcomposer.org/doc/00-intro.md)_
 
@@ -37,230 +69,356 @@ run `npm install`
 
 _[How to install node?](https://nodejs.org/en/download/package-manager/)_
 
-_\* Remember to set correct permissions for Cache directory. For example: `chown www-data:www-data ./src/Application/Cache/` or `chmod 777 ./src/Application/Cache/`_
+_\* Remember to set correct permissions for the Cache directory. For example: `chown www-data:www-data ./src/Application/Cache/` or `chmod 777 ./src/Application/Cache/`_
 
-Most quickest way to run your project is to use php's in-built server. To do that, cd into the _./somedir/src/Application/Public_ and run `php -S 0.0.0.0:8081`. Now open your **server_ip:8081** (or **127.0.0.1:8081**) and StaticPHP first page should show up.
+The quickest way to run the project is php's built in server:
 
-**or**
+    php -S 0.0.0.0:8081 -t src/Application/Public
 
-run `npm start`
+Open **127.0.0.1:8081** and the StaticPHP first page should show up. `npm start` does the
+same thing.
 
-By default, running StaticPHP with php's cli server, turns debugging on, but you can configure that in _./somedir/Applications/Config/Config.php_ by setting $config['environment'] or $config['debug'] variables.
+Running under the cli server turns debugging on by default; configure that in
+`src/Application/Config/Config.php` through `$config['environment']` and `$config['debug']`.
 
-_\* Take a look at home controller in ./somedir/src/Application/Modules/Controllers/Welcome.php and views in ./somedir/src/Application/Modules/Views/ for basic framework usage._
+_\* Take a look at the home controller in `src/Application/Modules/Defaults/Controllers/Welcome.php` and the views in `src/Application/Modules/Defaults/Views/` for basic framework usage._
 
 ### Assets
 
-All assets are stored in _./somedir/src/Application/Public/assets/_ directory. StaticPHP uses npm to handle css (using SCSS) and js assets, but you can also do it manually.
+All assets live in `src/Application/Public/assets/`. StaticPHP uses npm to handle css (SCSS)
+and js, but you can also do it manually.
 
 ### Cron
 
-Running controller from command line can be done this way: `php -f /srv/sites/gm.lv/sla/src/Application/Public/index.php -- --query /defaults/console/refresh`
+`./staticphp` is the cli entry point - it takes the url a browser would request:
 
-### Api
+    ./staticphp /defaults/console/refresh
+    ./staticphp /defaults/console/refresh --query "since=yesterday"
 
-[Api documentation](http://staticphp.gm.lv/docs/)\*
+From cron, give it the absolute path: `/srv/sites/example.com/staticphp /defaults/console/refresh`.
 
-_\* Work in progress_
+### Applications and modules
 
-### Example app
+A front controller declares where its application is, and everything else derives from
+that:
 
-[A simple todo application](http://staticphp-example.gm.lv/) based on sessions. To view the source, checkout the "example" branch.
+```php
+require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
-### PHPUnit
+define('PUBLIC_PATH', __DIR__);
 
-To run phpunit tests, install composer dev dependecies (`composer install --dev`) and then run `./Vendor/bin/phpunit ./src/Application/`
+require StaticPHP\Core\Bootstrap::FILE;
+```
 
-### ApiGen api documentation
+`APP_PATH`, `APP_MODULES_PATH`, `BASE_PATH` and `VENDOR_PATH` are each derived from
+`PUBLIC_PATH` and each can be defined ahead of time instead. `SP_PATH` is the framework's
+own directory, worked out from its own location, so it is right whether the framework was
+installed by composer or is a source checkout.
 
-To generate api documentation, install composer dev dependecies (`composer install --dev`), run `./Vendor/bin/apigen generate ./ --destination ./src/Application/Public/docs ./src` or `npm run docs` and open http://127.0.0.1:8081/docs/
+Because the application root is decided per request, one repository can serve several
+applications:
+
+    src/site1/Public/index.php    src/site1/Modules/Pasta/...
+    src/site2/Public/index.php    src/site2/Modules/Pasta/...
+
+Point each vhost at the matching `index.php` and each application sees only its own
+modules. `Pasta\Controllers\Quality` means a different class in each, which is why module
+namespaces are resolved by the framework's own autoloader rather than by PSR-4 - composer's
+map is static and global and cannot express it.
+
+To reach another registered tree, name it in `$config['module_paths']`:
+
+```php
+$config['module_paths'] = [
+    'site2' => BASE_PATH . '/site2/Modules',
+];
+```
+
+The value is the directory holding the modules. `staticphp` is a reserved name that always
+resolves to the framework's own modules, so its shipped configs and helpers are addressable
+with no configuration at all:
+
+```php
+$config['autoload_helpers'] = ['Bootstrap', 'staticphp/Utils/Helpers'];
+$config['autoload_configs'] = ['App', 'staticphp/Utils/Db'];
+```
+
+### Views
+
+`4apps/staticphp-core` suggests `twig/twig` rather than requiring it. That matters for
+api-only deployments: composer's `files` autoload is eager, and twig with its symfony
+polyfills loads eight files on every request whether or not a template is ever rendered.
+Leaving it out of the application's `composer.json` is what actually removes that cost -
+lazy class loading alone would not.
+
+Without twig installed the view engine is simply not built, and `Load::view()` falls back
+to plain php templates under the modules directory. `$config['disable_twig'] = true` skips
+building the environment for installs that do have the library.
+
+This skeleton requires twig, so `composer create-project` still gives a working app with
+views out of the box.
+
+### Tests and code style
+
+Everything that gates a merge lives in one script, used identically from the shell, the
+pre-commit hook and CI:
+
+    ./scripts/code_tests.bash          # everything
+    ./scripts/code_tests.bash php      # php only: lint, phpcs, phpstan, the Application suite
+    ./scripts/code_tests.bash js       # js only: tsc, eslint, prettier
+
+It needs the composer dev dependencies (`composer install`) and, for the js half,
+`npm ci`.
+
+Static analysis is phpstan at the level set in `phpstan.neon`, run over `src`, `scripts` and
+the `staticphp` cli entry point (`composer stan` on its own). There is no baseline file here:
+the skeleton is small enough to keep clean, and a generated application inherits this config
+as its starting point. Core carries a baseline because it was analysed for the first time
+against an existing tree.
+
+The framework's own suite lives in
+[staticphp-core](https://github.com/gintsmurans/staticphp-core) and runs there. This
+repository's suite covers the skeleton: that the front controller, the config and the demo
+module still work against whichever version of the package is installed.
+
+**Working on the framework and the skeleton together.** Point composer at a local checkout
+instead of Packagist:
+
+    git clone git@github.com:gintsmurans/staticphp-core.git ../staticphp-core
+    composer config repositories.core path ../staticphp-core
+    composer require 4apps/staticphp-core:dev-develop
+
+Composer symlinks it into `vendor/`, so edits in the core checkout are live here. Undo both
+halves before committing - `composer require` rewrote the constraint as well as adding the
+repository:
+
+    composer config --unset repositories.core
+    composer require 4apps/staticphp-core:^2.0
+
+Neither belongs in the committed `composer.json`: the path would not exist for anyone who
+clones only this repository, and `dev-develop` is not a release.
+
+### Migrations
+
+Schema changes are plain `.sql` files in `src/Application/Migrations/`, applied in
+filename order and tracked by sha256 in a `migrations` table. Forward only: there are no
+`down` scripts, because a rollback script is written when the schema is theoretical and
+run when it is not.
+
+    ./staticphp migrate new "add users table"   # create an empty migration
+    ./staticphp migrate status                  # what is applied, pending or blocked
+    ./staticphp migrate apply                   # run everything pending
+    ./staticphp migrate apply --dry-run         # list what would run
+    ./staticphp migrate status --check          # exit 1 if anything is pending (for CI)
+
+`migrate` is intercepted in `./staticphp` before the routing bootstrap and handed to
+`StaticPHP\Utils\Models\Migrations\Cli`, so it never reaches the router. That is
+deliberate: routing config has no notion of a cli-only route, so a migrations controller
+would also answer over http.
+
+Three states stop the tool and need a decision:
+
+| State     | Meaning                                    | Way out                        |
+| --------- | ------------------------------------------ | ------------------------------ |
+| `DRIFT`   | The file changed after it was applied      | Revert it, or `repair <name>`  |
+| `MISSING` | It was applied but the file is gone        | Restore it, or `forget <name>` |
+| `FAILED`  | It started and never finished              | See below                      |
+
+Adopting a database that already has the schema: `./staticphp migrate baseline` records
+migrations as applied **without running them**.
+
+Postgres, MySQL and SQLite are supported, but they are not equal. Postgres and SQLite have
+transactional DDL, so a failing migration rolls back completely and its tracking row
+commits with it. **MySQL commits DDL implicitly**, so a migration that fails half way
+leaves the earlier statements in place and cannot be undone. There, the tracking row is
+written *before* the migration runs and confirmed after, so a half-applied file shows up as
+`FAILED` and blocks every later migration rather than looking untouched and being silently
+re-run. Keep MySQL migrations to a single statement where you can.
+
+A file whose first line is `-- migrations:no-transaction` runs outside a transaction — for
+`CREATE INDEX CONCURRENTLY` on Postgres, or a SQLite table rebuild, which needs
+`PRAGMA foreign_keys = OFF` and is silently ignored inside one. Postgres refuses such a
+file if it holds more than one statement, since it would wrap a multi-statement send in an
+implicit transaction anyway.
+
+Settings live in `$config['migrations']` (directory, tracking table, which connection);
+`--dir`, `--table` and `--connection` override them per run.
+
+`scripts/migrations_integration.php` exercises the engine against a live Postgres and
+MySQL; the phpunit suite covers it against SQLite and needs no server.
+
+### Translations (i18n)
+
+Source text is the key. Templates read as English, an unseen string registers itself the
+first time a page asks for it, and an untranslated string shows up as `Log in*` rather than
+as a dotted path nobody can read.
+
+    ./staticphp i18n install          # write the schema into src/Application/Migrations
+    ./staticphp migrate apply         # create the tables
+    ./staticphp i18n status           # languages, and how much of each is translated
+    ./staticphp i18n missing lv_lv    # what is left
+    ./staticphp i18n set lv_lv "Log in" "Pieslēgties"
+    ./staticphp i18n export lv_lv --out=lv.csv
+    ./staticphp i18n import lv_lv lv.csv
+    ./staticphp i18n scan             # compare the source tree against the database
+    ./staticphp i18n status --check   # exit 1 if anything is untranslated (for CI)
+
+Call `i18n::init()` from a bootstrap hook. With no arguments the country and language come
+from the url prefix (`/lv-en/...`); a request that carries none is redirected to the
+language its `Accept-Language` header asks for, or to the first configured one.
+
+In templates:
+
+    {{ 'Log in'|translate }}
+    {{ _('Hello %name%', {'%name%': user.name}) }}
+    {{ _f('{n, plural, zero{# failu} one{# fails} other{# faili}}', {'n': count}) }}
+    {{ i18n_number(1234.5, 2) }}   {{ i18n_currency(99, 'EUR') }}   {{ i18n_date(date) }}
+    <link rel="alternate" hreflang="{{ a.hreflang }}" href="{{ a.url }}"> {# for a in i18n.alternates #}
+
+**Plurals go through ICU MessageFormat**, so the categories come from the target language:
+Latvian has three and Russian four, and 21 is singular in both. A two-form `ngettext` gets
+that wrong, which is why there isn't one.
+
+**Nothing is marked html-safe.** Twig escapes the translation and every value substituted
+into it. A translation that really does carry markup needs an explicit `|raw`.
+
+Numbers, dates and currency are formatted by ICU using a locale derived as
+`<language>_<COUNTRY>` — so an English page on the Latvian site reads in English and formats
+the Latvian way. Set `locale` on a country in `$config['i18n']['available']` to override it.
+
+Strings are loaded per language and cached; a per-language row in `i18n_cached` is what
+tells every application server the copy is still good, so a translator saving one string
+invalidates all of them without any of them being told. If the database is unreachable the
+page renders source strings and logs, rather than failing.
+
+Postgres, MySQL and SQLite are supported. Keys are addressed by a sha256 of the source
+text, because source text is a whole sentence and MySQL cannot index one.
+
+Upgrading a database that has the pre-2.0 i18n tables: `./staticphp i18n install --upgrade`
+writes a migration that dedupes `i18n_translations`, adds the unique constraint that stops
+the duplicates coming back, and backfills the key hashes. **It deletes rows — read it and
+take a dump first.** Postgres only; the old schema never shipped for anything else.
+
+`scripts/i18n_integration.php` exercises all of this against a live Postgres and MySQL,
+including the upgrade path.
+
+### Error pages
+
+There are two of them, and which one a browser gets is decided by `$config['debug']` and
+by nothing else.
+
+**The status page** is what the public sees. A status code, the standard explanation for
+it, and nothing internal — no exception message, no path, no trace. 5xx also carries a
+short reference id, which is written into the log line and the error email for the same
+request, so "something went wrong, reference `7f3a1c`" can actually be looked up. If a
+reverse proxy already set `X-Request-Id`, that is used instead.
+
+**The debug page** is what a developer sees. The exception and everything it was caused
+by, each with the source around the throw and a stack trace whose frames expand into their
+own source. Under it, the request: headers, query, body, cookies, session, `$_SERVER` and
+the runtime. Anything that looks like a credential is replaced with `***` first, in the
+page and in the log alike.
+
+Both are one self contained file — inline css, no fonts, images or scripts fetched from
+anywhere, light and dark. The page that renders a broken application must not depend on
+the application: an error page that needs the asset pipeline or the template engine cannot
+render the failure of the asset pipeline or the template engine. For the same reason they
+are plain php templates rather than twig ones.
+
+Replace either per application:
+
+```php
+$config['error_pages'] = [
+    'status' => APP_PATH . '/Views/Errors/status.php',
+    'debug'  => null,
+];
+```
+
+`StaticPHP\Core\Exceptions\ErrorPage` documents what a template is handed. Every value
+goes through the `$esc` callable it receives — messages and request data routinely contain
+markup.
+
+An `ErrorMessage` description is a note to a developer, not a sentence for the public:
+Router's 404 carries `Method "wire" of class "Payments" could not be found`. Descriptions
+are therefore withheld with debug off, in every output format. Pass `publicDescription:
+true` when the description really is meant to be published:
+
+```php
+throw new ErrorMessage(
+    message: 'Not Found',
+    description: 'That invoice has been archived.',
+    httpStatusCode: 404,
+    publicDescription: true
+);
+```
 
 ### Basic Nginx configuration
 
+The router reads `REQUEST_URI` and works out the rest, so nginx only has to send anything
+that is not a real file to the front controller. There is no rewrite to construct and no
+`PATH_INFO` to set up.
+
     server {
-        listen       80;
         listen       443 ssl;
-        server_name  staticphp.gm.lv;
+        server_name  example.com;
 
-        root  /www/sites/gm.lv/staticphp/src/Application/Public;
-        index index.php index.html index.htm;
+        root  /srv/sites/example.com/src/Application/Public;
+        index index.php;
 
-        # Error responses
-        error_page 403 /errors/E403.html;
-        error_page 404 405 =404 /errors/E404.html;
-        error_page 500 501 502 503 504 =500 /errors/E500.html;
-
-        # Handle error responses
-        location ~ /errors/(E[0-9]*.html) {
-            alias /www/sites/gm.lv/staticphp/System/Modules/Core/Views/Errors/$1;
-        }
-
-        # Base location
         location / {
-            if (!-e $request_filename)
-            {
-                rewrite  ^(.*)$  /index.php?/$1  last;
-            }
+            try_files $uri $uri/ /index.php;
         }
 
-        # Allow font origin (for webfonts and similar)
-        location ~* \.(eot|ttf|woff|svg)$ {
+        # Templates append ?{{ config.asset_version }} to every asset url, so a build
+        # changes the url and these can be cached indefinitely
+        location ^~ /assets/ {
+            expires max;
+            access_log off;
+        }
+
+        location ~* \.(eot|ttf|woff|woff2)$ {
             add_header Access-Control-Allow-Origin *;
         }
 
-        # Set assets expiration headers to max
-        location ~ ^/assets/ {
-            expires max;
-        }
-
-        # Handle php files
-        location ~ \.php(/|$) {
-            fastcgi_split_path_info ^(.+?\.php)(/.*)$;
-            if (!-f $document_root$fastcgi_script_name) {
-                return 404;
-            }
-
+        location ~ \.php$ {
             fastcgi_pass  127.0.0.1:9000;
-            fastcgi_index index.php;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-            fastcgi_param PATH_INFO       $fastcgi_path_info;
-            fastcgi_param PATH_TRANSLATED $document_root$fastcgi_path_info;
             include /etc/nginx/fastcgi_params;
-
-            # To intercept errors from fastcgi and show our error pages instead, otherwise nginx will send to browser whatever response there was from fastcgi
-            fastcgi_intercept_errors on;
         }
 
-        # Show 404 for hidden files
+        # .env, .git and friends are never static files
         location ~ /\. {
             return 404;
         }
     }
 
+Do not set `fastcgi_intercept_errors on` or point `error_page` at static html. The framework
+renders its own error pages, including the reference id that ties a 5xx to its log line -
+intercepting them replaces that with a blank nginx page. See [Error pages](#error-pages).
+
+`src/Application/Public/.htaccess` covers the same ground for apache and ships configured.
+
+### Releases
+
+Two numbers, one input. `.version` holds `major.minor` and is the only part edited by hand;
+the patch is the commit count, so it never needs a commit of its own and cannot conflict on
+a merge.
+
+    ./scripts/version.bash        # what the current commit would release as, e.g. 2.0.325
+    ./scripts/release_tag.bash    # create that tag locally, after checking it is sane
+    ./scripts/build_info.bash     # write .build_info.json for the running application
+
+Tagging and build info are deliberately separate: the tag is what Packagist publishes, while
+`.build_info.json` is what the application reports about itself and is written on every
+build, tagged or not. Both read `.version`, so they agree.
+
+`release_tag.bash` only creates the tag. Pushing it is what makes the release public, so
+that stays a separate, deliberate `git push origin <tag>`.
+
 ## TODO and ideas
 
--   i18n and cache class usage guide
+-   Cache class usage guide
 -   Cache class: postgres, mysql and sql lite support (who knows, somebody may want this:)
 -   Write usage guide
 -   Rewrite all sessions classes into one by adding an option to choose from session backend to use, possibly allowing to use multiple backends (e.g. memcached -> sql).
 -   Look for a way to extend a view from same directory as the view extending it. E.g. {% extends "layout.html" %} instead of {% extends "Defaults/Views/layout.html" %}
-
-## History
-
-####v1.2.0
-
--   Tests most probably doesn't work anymore
--   Update todo example app
--   √ Bring Exceptions to its own folder
--   √ Use full namespaces also for Core\Models. For example `use \Core\Models\Router;` now is `use \System\Modules\Core\Router;`
--   √ Update url structure to work without ending slash. Now in templates you do this: `{{ controller_url }}/test-page` instead of - `{{ controller_url }}test-page`.
--   √ Generate menus and submenus/sidebar using classes
--   √ Table presentation class
--   √ Update server to PHP 8.1
--   √ Update page layout to bootstrap 5
-
-####v1.2.0
-
--   √ Moved docker to main repository. Development is now meant to be used remotely in docker.
--   √ Moved Application and System folders into src.
--   √ Updated everything - PHP 8.1, bootstrap, npm libraries.
--   √ Removed redundant npm libraries.
--   √ Removed jQuery
--   √ Added bump2version.
--   √ Added build docker service which creates staticPHP archive.
--   √ Moved assets under its own src directory - easier to grep through if its under another parent path than dist folder.
-
-####v1.1.0
-
--   √ Updated Twig
-
-####v1.0.0
-
--   √ Removed Help/Example page descriptions - thats basically what apigen is for.
--   √ Rewrite Db class so that in init method $name parameter comes before $config.
--   √ Use composer only for php stuff.
--   √ Setup SCSS using npm scripts.
--   √ Setup webpack for js, also using npm scripts.
--   √ Expanded core clases from universal to more specific roles.
--   √ Added first PHPUnit tests.
--   √ Various Bugfixes.
--   √ Allow controllers, helpers and models to also be loaded from Application folder, same as Config already was.
--   √ Replaced apigen config file with new format.
-
-####v0.9.5
-
--   √ Cache class: Redis, Memcached, APC and files.
--   √ i18n class with twig integration (i18n::twigRegister(Load::$config['view_engine'])).
-
-####v0.9.4
-
--   √ Fixed possibility of nonexisting variable causing notices.
--   √ Updated nginx configuration example.
--   √ Added .editorconfig file.
--   √ Updated composer dependencies.
--   √ Few micro performance updates.
--   √ Option to disable twig template engine.
-
-####v0.9.3
-
--   √ Fixed issue preventing to load page from subdirectory.
-
-####v0.9.2
-
--   √ Fixed issue with $controller_url not being set when default route from Routes.php config file is loaded.
--   √ Core controller render method didn't have $data argument, fixed.
--   √ siteUrl twig filter now accepts all parameters that Router::siteUrl() does.
--   √ Added debug method to Router class.
--   √ Made all Router's helper methods public.
--   √ Renamed some variables of the Router class, so it makes more sense also added some new ones.
--   √ More Router fixes for correct controller handling.
-
-####v0.9.1
-
--   √ Documentation config update
-
-####v0.9
-
--   √ Added various small helper functions, take a look in System/Modules/Core/Helpers/Other.php
--   √ Rewritten framework for more modular structure
-    -   Links like - /module/my-controller/my-method are now turned into Application/Modules/Module/MyController.php::myMethod($params)
--   √ PSR-0 or PSR-4 autoloading schema
-    -   All folder names and file names are now named using StudlyCaps
-    -   We are not using "Vendor" in front of autoloading classes to avoid long includes (e.g. "use" parameters), which could be useful if more than one application is run with same instance, but for now we are skipping this.
--   √ Added core controller
-    -   If used, controller now have access to self::$controller_url and self::$method_url, very useful for migrating controllers to other urls and for controller copying.
-    -   self::render('path_to_view.html') will automatically look into module's Views directory
-    -   self::write($params) will echo json encoded string if $params is an array
--   √ Json reponse has been used very often so far, maybe we should make some kind of output filtering method that outputs content based on output type?
-    -   If an array is returned from a controller method, its turned into a json encoded string and is sent back to the browser
--   √ Put helpers under namespaces?
-    -   No, functions should be in global scope
--   √ Decide to go with Reflection Api or not.
-    -   Yes for Reflection Api
--   √ Css and js minifying - git hooks, also css and js versioning.
-    -   Added minify.py under Scripts, this also makes javascript source maps
-    -   Added all the stuff related to this in default views
-    -   Added git pre-commit hook that can check whether css, js file was modified and based on that execute minify.py
-    -   Added git post-receive hook that can check whether css or js file was modified and base on that increase css or js version by calling a url with wget
--   √ Script to clear Twig cache. Also a git hook?
-    -   Added a git post-receive script that can check whether any html file was modified, and if was, can clear twig cache
-
-####v0.8
-
--   √ Should database run all queries in beginTransaction .. commit .. rollback mode?
-    -   Not for now, by default we are running connections in persistent mode, which can cause issues with transactions.
--   √ Update one of the project currently using StaticPHP to get the idea of whether we are not missing any required variable to be available globally in view files.
--   √ Choose documentation parser.
-    -   apigen for now.
--   √ Check whether form validation helper still works and how it applies to Twig.
-    -   Works now and can be registered with twig by running \models\fv::twig_register();
--   √ Pages helper should register it self with Twig once loadded and if Twig is available.
-    -   Nop, pagination html can be passed in the view as variable.
--   √ Change all include to require, so that we don't expose StaticPHP to any security issues by doing something that can't be done.
--   √ Update StaticPHP start page.
--   √ Add filesystem helpers to core \load class.
--   √ Logger interface through core\load class.
--   √ Go through core router class and make sure there are no redundant methods.
--   √ Rename all class methods in camelCase format to comply with php-fip standards. Also possibly filenames.
--   √ Check whether url prefixes are working.
--   √ Check before_controller hook.

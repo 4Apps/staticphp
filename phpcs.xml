@@ -1,6 +1,19 @@
 <?xml version="1.0"?>
 <ruleset name="CustomStandard">
     <description>Custom coding standard.</description>
+
+    <!-- Without this phpcs walks .js/.css/.html too -->
+    <arg name="extensions" value="php"/>
+    <arg name="cache" value=".phpcs.cache"/>
+    <arg name="colors"/>
+    <!-- n: warnings do not fail the run; code_tests.bash decides what is fatal -->
+    <arg value="n"/>
+    <config name="ignore_warnings_on_exit" value="1"/>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*/Cache/*</exclude-pattern>
+    <exclude-pattern>*/assets/dist/*</exclude-pattern>
     <!-- <rule ref="PEAR">
         <exclude name="PEAR.Commenting.FileComment.Missing"/>
         <exclude name="PEAR.Commenting.FileComment.MissingCategoryTag"/>
@@ -18,8 +31,26 @@
         </properties>
     </rule>
 
-    <rule ref="PSR2"/>
+    <!--
+        PSR-12 supersedes PSR-2. Including both meant PSR-2's older ControlSignature sniff
+        rejected multi-line if() conditions - the style PSR-12 explicitly allows and this
+        codebase uses throughout - so 14 of the 17 reported errors were the ruleset
+        disagreeing with itself.
+    -->
     <rule ref="PSR12"/>
+
+    <!--
+        i18n is an established abbreviation, and renaming the class would break every
+        application that references it.
+    -->
+    <rule ref="PSR1.Classes.ClassDeclaration.MissingNamespace">
+        <exclude-pattern>*/i18n.php</exclude-pattern>
+    </rule>
+    <!-- phpcs 4 renamed this code from NotCamelCaps -->
+    <rule ref="Squiz.Classes.ValidClassName.NotPascalCase">
+        <exclude-pattern>*/i18n.php</exclude-pattern>
+    </rule>
+
     <rule ref="Zend.Files.ClosingTag"/>
     <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
     <rule ref="Generic.Commenting.Todo"/>

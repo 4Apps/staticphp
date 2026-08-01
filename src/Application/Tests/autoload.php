@@ -1,31 +1,15 @@
 <?php
 
-// Define paths
-define('DS', DIRECTORY_SEPARATOR);
+/**
+ * Bootstrap for the application's test suite.
+ *
+ * Composer resolves StaticPHP\ and everything in vendor; the application autoloader in
+ * Core/Helpers/Autoload.php resolves the module namespaces. This file used to carry its
+ * own copy of that autoloader, which drifted from the real one.
+ */
 
-define('PUBLIC_PATH', dirname(dirname(__FILE__)) . DS . 'Public' . DS);
-define('APP_PATH', dirname(PUBLIC_PATH) . DS);
-define('APP_MODULES_PATH', APP_PATH . 'Modules' . DS);
-define('BASE_PATH', dirname(APP_PATH) . DS);
-define('SYS_PATH', BASE_PATH . 'System' . DS);
-define('SYS_MODULES_PATH', SYS_PATH . 'Modules' . DS);
+require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
-spl_autoload_register(
-    function ($classname) {
-        $classname = str_replace('\\', DS, $classname);
-        $classname = ltrim($classname, DS);
+define('PUBLIC_PATH', dirname(__DIR__) . '/Public');
 
-        if (is_file(APP_MODULES_PATH . $classname . '.php')) {
-            require APP_MODULES_PATH . $classname . '.php';
-        } elseif (is_file(APP_PATH . $classname . '.php')) {
-            require APP_PATH . $classname . '.php';
-        } elseif (is_file(SYS_MODULES_PATH . $classname . '.php')) {
-            require SYS_MODULES_PATH . $classname . '.php';
-        } elseif (is_file(SYS_PATH . $classname . '.php')) {
-            require SYS_PATH . $classname . '.php';
-        } elseif (is_file(BASE_PATH . $classname . '.php')) {
-            require BASE_PATH . $classname . '.php';
-        }
-    },
-    true
-);
+require StaticPHP\Core\Bootstrap::AUTOLOAD;
