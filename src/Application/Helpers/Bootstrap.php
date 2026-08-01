@@ -1,6 +1,6 @@
 <?php
 
-use System\Modules\Presentation\Models\Menu\Menu;
+use StaticPHP\Presentation\Models\Menu\Menu;
 use Defaults\Data\MainMenu;
 
 // This is the right place to set headers, start a session, etc.
@@ -15,7 +15,7 @@ header('Content-type: text/html; charset=utf-8');
 // date_default_timezone_set('Europe/Riga');
 
 
-// Init db - Before uncommenting add at the use secion: "use \Core\Models\Db;"
+// Init db - Before uncommenting add at the use section: "use StaticPHP\Utils\Models\Db;"
 // Db::init();
 
 

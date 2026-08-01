@@ -2,10 +2,10 @@
 
 namespace Defaults\Controllers;
 
-use System\Modules\Core\Exceptions\ErrorMessage;
-use System\Modules\Core\Controllers\Controller;
-use System\Modules\Core\Models\Load;
-use System\Modules\Core\Models\Timers;
+use StaticPHP\Core\Exceptions\ErrorMessage;
+use StaticPHP\Core\Controllers\Controller;
+use StaticPHP\Core\Models\Load;
+use StaticPHP\Core\Models\Timers;
 
 /**
  * Welcome page controller.
@@ -92,7 +92,7 @@ class Welcome extends Controller
         }
 
         // Router debug output
-        // \System\Modules\Core\Models\Router::debug();
+        // \StaticPHP\Core\Models\Router::debug();
 
         Load::view(['Defaults/Views/example.html'], $viewData);
     }

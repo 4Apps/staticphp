@@ -21,12 +21,12 @@
  * one of the two to hand.
  */
 
-use System\Modules\Utils\Models\Db;
-use System\Modules\Utils\Models\i18n;
-use System\Modules\Utils\Models\Translation\Catalog;
-use System\Modules\Utils\Models\Translation\Commands;
-use System\Modules\Utils\Models\Translation\Locales;
-use System\Modules\Utils\Models\Translation\Store;
+use StaticPHP\Utils\Models\Db;
+use StaticPHP\Utils\Models\i18n;
+use StaticPHP\Utils\Models\Translation\Catalog;
+use StaticPHP\Utils\Models\Translation\Commands;
+use StaticPHP\Utils\Models\Translation\Locales;
+use StaticPHP\Utils\Models\Translation\Store;
 
 $basePath = dirname(__DIR__) . '/src';
 
@@ -96,7 +96,7 @@ function dropTables(string $connection): void
  */
 function installSchema(string $connection, string $driver, string $basePath): void
 {
-    $sql = (string) file_get_contents("{$basePath}/System/Modules/Utils/Files/I18n/install.{$driver}.sql");
+    $sql = (string) file_get_contents("{$basePath}/System/Utils/Files/I18n/install.{$driver}.sql");
 
     foreach (explode(';', $sql) as $statement) {
         $statement = trim(preg_replace('/^\s*--.*$/m', '', $statement) ?? '');
@@ -280,7 +280,7 @@ function checkUpgrade(string $connection, string $basePath): void
 {
     dropTables($connection);
 
-    // Verbatim from the file this replaced, System/Modules/Utils/Files/i18n_pg.sql
+    // Verbatim from the file this replaced, System/Utils/Files/i18n_pg.sql
     Db::query('CREATE TABLE i18n_cached (id text NOT NULL PRIMARY KEY, created bigint NOT NULL DEFAULT 0)', [], $connection);
     Db::query(
         'CREATE TABLE i18n_keys (id serial PRIMARY KEY, created bigint NOT NULL DEFAULT 0,'
@@ -314,7 +314,7 @@ function checkUpgrade(string $connection, string $basePath): void
     Db::query('INSERT INTO i18n_translations (key_id, language, "value") VALUES (999, ?, ?)', ['lv_lv', 'y'], $connection);
     Db::query('INSERT INTO i18n_cached (id, created) VALUES (?, ?)', ['lv_lv', 1000], $connection);
 
-    $sql = (string) file_get_contents("{$basePath}/System/Modules/Utils/Files/I18n/upgrade.pgsql.sql");
+    $sql = (string) file_get_contents("{$basePath}/System/Utils/Files/I18n/upgrade.pgsql.sql");
 
     foreach (explode(';', $sql) as $statement) {
         $statement = trim(preg_replace('/^\s*--.*$/m', '', $statement) ?? '');

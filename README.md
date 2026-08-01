@@ -9,7 +9,33 @@ Simple, modular php framework. **README.md needs to be updated.**
 ### Requirements
 
 -   PHP 8.4+
--   Twig 3.0+
+-   Twig 3.0+ (optional, see [Packages](#packages))
+
+### Packages
+
+StaticPHP ships as two composer packages, the way `laravel/laravel` and
+`laravel/framework` are split:
+
+| Package                | Type      | Contents                                                       |
+| ---------------------- | --------- | -------------------------------------------------------------- |
+| `4apps/staticphp-core` | `library` | The framework. `composer require` this from an application.      |
+| `4apps/staticphp`      | `project` | This skeleton. `composer create-project` this to start a site.   |
+
+An existing site does not vendor a copy of the framework any more:
+
+```bash
+composer require 4apps/staticphp-core
+```
+
+Everything the framework provides lives under the `StaticPHP\` namespace and is resolved
+by composer's PSR-4 autoloader. Application code keeps its own conventions - a module name
+is its own namespace root (`Pasta\Controllers\Quality`), resolved at runtime against the
+application that served the request. See [Applications and modules](#applications-and-modules).
+
+Twig is a `suggest` of the core package rather than a requirement, so an api-only
+deployment can leave it out entirely. See [Views](#views).
+
+Upgrading from 1.x: see [UPGRADE.md](UPGRADE.md).
 
 ### Installation
 
@@ -67,17 +93,95 @@ _\* Work in progress_
 
 [A simple todo application](http://staticphp-example.gm.lv/) based on sessions. To view the source, checkout the "example" branch.
 
+### Applications and modules
+
+A front controller declares where its application is, and everything else derives from
+that:
+
+```php
+require dirname(__DIR__, 3) . '/vendor/autoload.php';
+
+define('PUBLIC_PATH', __DIR__);
+
+require StaticPHP\Core\Bootstrap::FILE;
+```
+
+`APP_PATH`, `APP_MODULES_PATH`, `BASE_PATH` and `VENDOR_PATH` are each derived from
+`PUBLIC_PATH` and each can be defined ahead of time instead. `SP_PATH` is the framework's
+own directory, worked out from its own location, so it is right whether the framework was
+installed by composer or is a source checkout.
+
+Because the application root is decided per request, one repository can serve several
+applications:
+
+    src/site1/Public/index.php    src/site1/Modules/Pasta/...
+    src/site2/Public/index.php    src/site2/Modules/Pasta/...
+
+Point each vhost at the matching `index.php` and each application sees only its own
+modules. `Pasta\Controllers\Quality` means a different class in each, which is why module
+namespaces are resolved by the framework's own autoloader rather than by PSR-4 - composer's
+map is static and global and cannot express it.
+
+To reach another registered tree, name it in `$config['module_paths']`:
+
+```php
+$config['module_paths'] = [
+    'site2' => BASE_PATH . '/site2/Modules',
+];
+```
+
+The value is the directory holding the modules. `staticphp` is a reserved name that always
+resolves to the framework's own modules, so its shipped configs and helpers are addressable
+with no configuration at all:
+
+```php
+$config['autoload_helpers'] = ['Bootstrap', 'staticphp/Utils/Helpers'];
+$config['autoload_configs'] = ['App', 'staticphp/Utils/Db'];
+```
+
+### Views
+
+`4apps/staticphp-core` suggests `twig/twig` rather than requiring it. That matters for
+api-only deployments: composer's `files` autoload is eager, and twig with its symfony
+polyfills loads eight files on every request whether or not a template is ever rendered.
+Leaving it out of the application's `composer.json` is what actually removes that cost -
+lazy class loading alone would not.
+
+Without twig installed the view engine is simply not built, and `Load::view()` falls back
+to plain php templates under the modules directory. `$config['disable_twig'] = true` skips
+building the environment for installs that do have the library.
+
+This skeleton requires twig, so `composer create-project` still gives a working app with
+views out of the box.
+
 ### Tests and code style
 
 Everything that gates a merge lives in one script, used identically from the shell, the
 pre-commit hook and CI:
 
     ./scripts/code_tests.bash          # everything
-    ./scripts/code_tests.bash php      # php only: lint, phpcs, both phpunit suites
+    ./scripts/code_tests.bash php      # php only: lint, phpcs, the Application suite
     ./scripts/code_tests.bash js       # js only: tsc, eslint, prettier
 
 It needs the composer dev dependencies (`composer install`) and, for the js half,
 `npm ci`.
+
+The framework's own suite lives in
+[staticphp-core](https://github.com/gintsmurans/staticphp-core) and runs there. This
+repository's suite covers the skeleton: that the front controller, the config and the demo
+module still work against whichever version of the package is installed.
+
+**Working on the framework and the skeleton together.** Point composer at a local checkout
+instead of Packagist:
+
+    git clone git@github.com:gintsmurans/staticphp-core.git ../staticphp-core
+    composer config repositories.core path ../staticphp-core
+    composer require "4apps/staticphp-core:dev-develop as 2.0.0"
+
+Composer symlinks it into `vendor/`, so edits in the core checkout are live here. Undo it
+with `composer config --unset repositories.core` before committing - the path repository is
+deliberately not in the committed `composer.json`, because it would not exist for anyone
+who clones only this repository.
 
 ### Migrations
 
@@ -93,7 +197,7 @@ run when it is not.
     ./staticphp migrate status --check          # exit 1 if anything is pending (for CI)
 
 `migrate` is intercepted in `./staticphp` before the routing bootstrap and handed to
-`System\Modules\Utils\Models\Migrations\Cli`, so it never reaches the router. That is
+`StaticPHP\Utils\Models\Migrations\Cli`, so it never reaches the router. That is
 deliberate: routing config has no notion of a cli-only route, so a migrations controller
 would also answer over http.
 
@@ -215,7 +319,7 @@ $config['error_pages'] = [
 ];
 ```
 
-`System\Modules\Core\Exceptions\ErrorPage` documents what a template is handed. Every value
+`StaticPHP\Core\Exceptions\ErrorPage` documents what a template is handed. Every value
 goes through the `$esc` callable it receives — messages and request data routinely contain
 markup.
 
@@ -250,7 +354,7 @@ throw new ErrorMessage(
 
         # Handle error responses
         location ~ /errors/(E[0-9]*.html) {
-            alias /www/sites/gm.lv/staticphp/System/Modules/Core/Views/Errors/$1;
+            alias /www/sites/gm.lv/staticphp/System/Core/Views/Errors/$1;
         }
 
         # Base location
@@ -310,7 +414,7 @@ throw new ErrorMessage(
 -   Tests most probably doesn't work anymore
 -   Update todo example app
 -   √ Bring Exceptions to its own folder
--   √ Use full namespaces also for Core\Models. For example `use \Core\Models\Router;` now is `use \System\Modules\Core\Router;`
+-   √ Use full namespaces also for Core\Models. For example `use \Core\Models\Router;` now is `use \StaticPHP\Core\Router;`
 -   √ Update url structure to work without ending slash. Now in templates you do this: `{{ controller_url }}/test-page` instead of - `{{ controller_url }}test-page`.
 -   √ Generate menus and submenus/sidebar using classes
 -   √ Table presentation class
@@ -379,7 +483,7 @@ throw new ErrorMessage(
 
 ####v0.9
 
--   √ Added various small helper functions, take a look in System/Modules/Core/Helpers/Other.php
+-   √ Added various small helper functions, take a look in System/Core/Helpers/Other.php
 -   √ Rewritten framework for more modular structure
     -   Links like - /module/my-controller/my-method are now turned into Application/Modules/Module/MyController.php::myMethod($params)
 -   √ PSR-0 or PSR-4 autoloading schema

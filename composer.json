@@ -1,6 +1,6 @@
 {
     "name": "4apps/staticphp",
-    "description": "A lightweight PHP framework",
+    "description": "Application skeleton for the StaticPHP framework",
     "license": "MIT",
     "type": "project",
     "authors": [
@@ -16,6 +16,7 @@
         "ext-intl": "*",
         "ext-mbstring": "*",
         "ext-pdo": "*",
+        "4apps/staticphp-core": "^2.0",
         "twig/twig": "^3.0",
         "symfony/dotenv": "^8.0"
     },
@@ -23,24 +24,11 @@
         "phpunit/phpunit": "^13.0",
         "squizlabs/php_codesniffer": "^4.0"
     },
-    "autoload": {
-        "classmap": [
-            "src/System",
-            "src/Application"
-        ],
-        "exclude-from-classmap": [
-            "src/System/Tests/",
-            "src/Application/Tests/"
-        ]
-    },
     "config": {
         "sort-packages": true
     },
     "scripts": {
-        "test": [
-            "@php vendor/bin/phpunit -c src/System/phpunit.xml",
-            "@php vendor/bin/phpunit -c src/Application/phpunit.xml"
-        ],
+        "test": "@php vendor/bin/phpunit -c src/Application/phpunit.xml",
         "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src"
     }
 }

@@ -2,10 +2,10 @@
 
 namespace Defaults\Data;
 
-use System\Modules\Core\Models\Router;
-use System\Modules\Core\Models\Config;
-use System\Modules\Presentation\Models\Menu\Menu;
-use System\Modules\Presentation\Models\Menu\MenuType;
+use StaticPHP\Core\Models\Router;
+use StaticPHP\Core\Models\Config;
+use StaticPHP\Presentation\Models\Menu\Menu;
+use StaticPHP\Presentation\Models\Menu\MenuType;
 
 class MainMenu extends Menu
 {

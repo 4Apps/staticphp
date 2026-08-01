@@ -41,8 +41,10 @@ run_php() {
     step "php -l (syntax)"
     # -print0/-0 so paths with spaces survive
     # scripts/ too: the integration scripts are not covered by any suite, so a rename in
-    # src/ that breaks one of them would otherwise go unnoticed until somebody ran it
-    if find src scripts -name '*.php' -type f -print0 | xargs -0 -n1 -P4 php -l > /dev/null; then
+    # src/ that breaks one of them would otherwise go unnoticed until somebody ran it.
+    # The cli entry point has no .php extension, hence the second check.
+    if find src scripts -name '*.php' -type f -print0 | xargs -0 -n1 -P4 php -l > /dev/null \
+        && php -l staticphp > /dev/null; then
         ok
     else
         fail "php syntax errors"
@@ -51,9 +53,9 @@ run_php() {
     step "phpcs (code style)"
     if ./vendor/bin/phpcs --standard=phpcs.xml src scripts; then ok; else fail "phpcs"; fi
 
-    step "phpunit (System)"
-    if ./vendor/bin/phpunit -c src/System/phpunit.xml; then ok; else fail "System tests"; fi
-
+    # The framework has its own suite in the staticphp-core repository. This one covers the
+    # skeleton: that the front controller, the config and the demo module still work
+    # against whatever version of the package is installed.
     step "phpunit (Application)"
     if ./vendor/bin/phpunit -c src/Application/phpunit.xml; then ok; else fail "Application tests"; fi
 }

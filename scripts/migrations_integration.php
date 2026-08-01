@@ -20,15 +20,15 @@
  * one of the two to hand.
  */
 
-use System\Modules\Utils\Models\Migrations\Commands;
-use System\Modules\Utils\Models\Migrations\Drivers\Driver;
-use System\Modules\Utils\Models\Migrations\State;
-use System\Modules\Utils\Models\Migrations\States;
-use System\Modules\Utils\Models\Migrations\Discovery;
-use System\Modules\Utils\Models\Migrations\Tracker;
+use StaticPHP\Utils\Models\Migrations\Commands;
+use StaticPHP\Utils\Models\Migrations\Drivers\Driver;
+use StaticPHP\Utils\Models\Migrations\State;
+use StaticPHP\Utils\Models\Migrations\States;
+use StaticPHP\Utils\Models\Migrations\Discovery;
+use StaticPHP\Utils\Models\Migrations\Tracker;
 
 $basePath = dirname(__DIR__) . '/src';
-require "{$basePath}/System/Modules/Utils/Models/Migrations/MigrationError.php";
+require "{$basePath}/System/Utils/Models/Migrations/MigrationError.php";
 
 spl_autoload_register(function ($class) use ($basePath) {
     $path = $basePath . '/' . str_replace('\\', '/', $class) . '.php';

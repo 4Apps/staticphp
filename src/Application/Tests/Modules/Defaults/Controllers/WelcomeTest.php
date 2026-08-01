@@ -3,10 +3,10 @@
 namespace Tests\Modules\Defaults\Controllers;
 
 use PHPUnit\Framework\TestCase;
-use System\Modules\Core\Controllers\Controller;
-use System\Modules\Core\Models\Load;
-use System\Modules\Core\Models\Router;
-use System\Modules\Core\Models\Request;
+use StaticPHP\Core\Controllers\Controller;
+use StaticPHP\Core\Models\Load;
+use StaticPHP\Core\Models\Router;
+use StaticPHP\Core\Models\Request;
 
 class WelcomeTest extends TestCase
 {
@@ -93,7 +93,7 @@ class WelcomeTest extends TestCase
         $this->assertEquals(404, $status);
         $this->assertStringStartsWith('<!DOCTYPE html>', $body);
         $this->assertStringContainsString('404 Not Found', $body);
-        $this->assertStringNotContainsString('Modules/Core/Models/Router.php', $body);
+        $this->assertStringNotContainsString('Core/Models/Router.php', $body);
         $this->assertStringNotContainsString('No controller for path', $body);
         $this->assertStringNotContainsString('ErrorMessage', $body);
     }
@@ -104,6 +104,6 @@ class WelcomeTest extends TestCase
 
         $this->assertEquals(404, $status);
         $this->assertStringContainsString('No controller for path', $body);
-        $this->assertStringContainsString('Modules/Core/Models/Router.php', $body);
+        $this->assertStringContainsString('Core/Models/Router.php', $body);
     }
 }

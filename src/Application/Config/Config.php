@@ -5,7 +5,7 @@
  */
 
 use Symfony\Component\Dotenv\Dotenv;
-use System\Modules\Core\Models\Logger;
+use StaticPHP\Core\Models\Logger;
 
 /**
  * We are gonna start with loading of the .env files
@@ -35,7 +35,12 @@ $config = [];
 |--------------------------------------------------------------------------
 */
 $config['base_url'] = null; // NULL for auto detect
-$config['disable_twig'] = false; // Option to disable twig template engine
+
+// Skip building the twig environment even when the library is installed. Note that
+// staticphp-core only suggests twig/twig - leaving it out of an api only application's
+// composer.json is what actually saves the work, because composer's "files" autoload is
+// eager and twig plus its symfony polyfills load eight files on every request.
+$config['disable_twig'] = false;
 
 /*
 |--------------------------------------------------------------------------
@@ -111,7 +116,7 @@ $config['logging'] = [
 | unable to render a broken template engine, which is when it is needed most. The same
 | goes for stylesheets and scripts - both pages are one self contained file.
 |
-| See System\Modules\Core\Exceptions\ErrorPage for the variables a template receives.
+| See StaticPHP\Core\Exceptions\ErrorPage for the variables a template receives.
 |--------------------------------------------------------------------------
 */
 $config['error_pages'] = [
@@ -172,10 +177,36 @@ $config['url_prefixes'] = [];
 
 /*
 |--------------------------------------------------------------------------
+| Module paths
+|
+| Directories holding modules, addressable by name from Load:: and from the autoload
+| lists below. "staticphp" is reserved - it always resolves to the framework's own
+| modules, wherever composer installed them, and cannot be listed or overridden here.
+|
+| Add an entry per application when one repository serves several - each front controller
+| defines its own PUBLIC_PATH, so APP_MODULES_PATH already points at the right one; this
+| is only needed to reach *another* application's modules.
+|
+|   'site2' => BASE_PATH . '/site2/Modules',
+|
+| The value is the directory that contains the modules, not its parent. This replaces the
+| old convention where the third path segment named a directory under BASE_PATH, which
+| assumed every loadable tree was a sibling of the application.
+|--------------------------------------------------------------------------
+*/
+$config['module_paths'] = [];
+
+/*
+|--------------------------------------------------------------------------
 | Autoload
 |
 | Place filenames without ".php" extension here to autoload various files and classes
-| Possible formats: Application/Module/Filename, Module/Filename, Filename (only to load global config)
+| Possible formats: ModulePath/Module/Filename, Module/Filename, Filename (only to load
+| global config from APP_PATH)
+|
+| To pull in something the framework ships, name it through "staticphp":
+|
+|   $config['autoload_helpers'] = ['Bootstrap', 'staticphp/Utils/Helpers'];
 |--------------------------------------------------------------------------
 */
 $config['autoload_configs'] = ['App'];
