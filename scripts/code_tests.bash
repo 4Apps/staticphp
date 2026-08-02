@@ -38,12 +38,19 @@ fail() {
 }
 
 run_php() {
+    # tests/ holds the tooling suite, which is stripped when a project is generated - the
+    # same script then runs in that project against everything that is left.
+    local paths=(lib src scripts)
+    if [ -d tests ]; then
+        paths+=(tests)
+    fi
+
     step "php -l (syntax)"
     # -print0/-0 so paths with spaces survive
     # scripts/ too: the integration scripts are not covered by any suite, so a rename in
     # src/ that breaks one of them would otherwise go unnoticed until somebody ran it.
     # The cli entry point has no .php extension, hence the second check.
-    if find lib src scripts tests -name '*.php' -type f -print0 | xargs -0 -n1 -P4 php -l > /dev/null \
+    if find "${paths[@]}" -name '*.php' -type f -print0 | xargs -0 -n1 -P4 php -l > /dev/null \
         && php -l staticphp > /dev/null; then
         ok
     else
@@ -51,7 +58,7 @@ run_php() {
     fi
 
     step "phpcs (code style)"
-    if ./vendor/bin/phpcs --standard=phpcs.xml lib src scripts tests; then ok; else fail "phpcs"; fi
+    if ./vendor/bin/phpcs --standard=phpcs.xml "${paths[@]}"; then ok; else fail "phpcs"; fi
 
     # No baseline file here on purpose: the skeleton is small enough to keep clean, and an
     # application generated from it inherits phpstan.neon as its own starting point.
@@ -60,9 +67,11 @@ run_php() {
 
     # The tooling - the scaffolder and the upgrader - before any application, because it
     # runs on a checkout that has none and is exactly what somebody would be leaning on at
-    # that point.
-    step "phpunit (tooling)"
-    if ./vendor/bin/phpunit -c phpunit.xml; then ok; else fail "tooling tests"; fi
+    # that point. Gone in a generated project, along with the suite it configures.
+    if [ -f phpunit.xml ]; then
+        step "phpunit (tooling)"
+        if ./vendor/bin/phpunit -c phpunit.xml; then ok; else fail "tooling tests"; fi
+    fi
 
     # The framework has its own suite in the staticphp-core repository. This one covers the
     # skeleton: that the front controller, the config and the demo module still work

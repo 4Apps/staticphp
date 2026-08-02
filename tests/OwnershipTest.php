@@ -135,6 +135,14 @@ final class OwnershipTest extends TestCase
         self::assertTrue($ownership->isStripped('scripts/release_tag.bash'));
         self::assertTrue($ownership->isStripped('CHANGELOG.md'));
 
+        // The workflow tests the skeleton - it scaffolds presets and rehearses upgrades -
+        // so a project inheriting it would start with a red build it never asked for
+        self::assertTrue($ownership->isStripped('.github/workflows/ci.yml'));
+
+        // As does the suite covering the scaffolder and the upgrader
+        self::assertTrue($ownership->isStripped('tests/UpgraderTest.php'));
+        self::assertTrue($ownership->isStripped('phpunit.xml'));
+
         // Things a project genuinely wants upgraded
         self::assertFalse($ownership->skips('rspack.config.js'));
         self::assertFalse($ownership->skips('docker/app/Dockerfile'));

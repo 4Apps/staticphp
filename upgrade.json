@@ -13,10 +13,17 @@
         "/.version"
     ],
     "strip": [
+        "/.github/",
         "/scripts/version.bash",
         "/scripts/release_tag.bash",
         "/scripts/upgrade_v2_namespaces.bash",
-        "/docs/superpowers/",
+        "/scripts/i18n_integration.php",
+        "/scripts/migrations_integration.php",
+        "/tests/",
+        "/phpunit.xml",
+        "/docs/",
+        "/resources/",
+        "/LICENSE",
         "/UPGRADE.md",
         "/CHANGELOG.md"
     ],

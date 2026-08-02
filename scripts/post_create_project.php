@@ -16,9 +16,11 @@
  * application boots with no APP_ENV. Existing files are never overwritten.
  *
  * The cleanup drops what only ever described the skeleton itself: the scripts that publish
- * 4apps/staticphp to Packagist, the 1.x upgrade aids, and the package metadata. Left in
- * place they are at best noise and at worst wrong - a generated project that still calls
- * itself 4apps/staticphp, or a release script that offers to publish it.
+ * 4apps/staticphp to Packagist, the 1.x upgrade aids, the workflow that tests the skeleton,
+ * the suite covering its tooling, its licence and branding, and the package metadata. Left
+ * in place they are at best noise and at worst wrong - a generated project that still calls
+ * itself 4apps/staticphp, a release script that offers to publish it, or an MIT licence over
+ * somebody else's proprietary application.
  */
 
 // Composer installs dependencies before it runs post-create-project-cmd, so the autoloader
@@ -67,24 +69,31 @@ function createFirstApp(string $root, string $preset): void
 }
 
 /**
- * Drops the block of .gitignore that only makes sense inside the skeleton.
+ * Drops the parts of a config file that only make sense inside the skeleton.
  *
- * There, an application is a build artifact and tracking one would mean every fix landing
- * twice. In a generated project the application is the whole point and belongs in git.
+ * A whole file can be named in upgrade.json's strip list; this is for the ones a generated
+ * project still needs, minus a block. Each is delimited by comment markers so the file stays
+ * valid in its own syntax and the reason sits next to what it describes:
+ *
+ *   .gitignore     an application is a build artifact here and tracked in a real project
+ *   phpstan.neon   tests/ and the integration scripts it excuses are both stripped
  *
  * @param string $root Project root.
+ * @param string $target Path of the file to edit, relative to the project root.
  * @return void
  */
-function untrackSkeletonIgnores(string $root): void
+function stripSkeletonBlocks(string $root, string $target): void
 {
-    $path = $root . '/.gitignore';
+    $path = $root . '/' . $target;
     $contents = @file_get_contents($path);
     if ($contents === false) {
         return;
     }
 
+    // Leading whitespace is allowed: in neon the markers sit at the indentation of what
+    // they wrap, and a marker anchored to column zero would be out of place there.
     $stripped = preg_replace(
-        '/^# SKELETON ONLY.*?^# END SKELETON ONLY\n/ms',
+        '/^[ \t]*# SKELETON ONLY.*?^[ \t]*# END SKELETON ONLY[ \t]*\n/ms',
         '',
         $contents
     );
@@ -94,7 +103,7 @@ function untrackSkeletonIgnores(string $root): void
     }
 
     file_put_contents($path, $stripped);
-    echo "  reset   .gitignore (src/ is tracked in a real project)\n";
+    echo "  reset   {$target} (dropped its skeleton-only block)\n";
 }
 
 /**
@@ -249,8 +258,15 @@ function resetComposerMetadata(string $root): void
     $composer['license'] = 'proprietary';
     unset($composer['authors']);
 
+    // The tooling suite goes with tests/; what is left has nothing to autoload.
+    unset($composer['autoload-dev']);
+
     if (is_array($composer['scripts'] ?? null)) {
         unset($composer['scripts']['post-create-project-cmd']);
+
+        // Same tests/ again. `test` needs no help - it already skips a phpunit.xml that is
+        // not there - but phpcs is given its paths and fails on one that does not exist.
+        $composer['scripts']['lint'] = '@php vendor/bin/phpcs --standard=phpcs.xml lib src scripts';
     }
 
     $encoded = json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
@@ -289,11 +305,13 @@ createFromExample($root, '.env', 'applyLocalIds');
 createFirstApp($root, Presets::choose(new Scaffolder($root), DEFAULT_PRESET));
 
 if ($newProject === true) {
-    untrackSkeletonIgnores($root);
+    stripSkeletonBlocks($root, '.gitignore');
+    stripSkeletonBlocks($root, 'phpstan.neon');
 
     // Everything that only ever described the skeleton: the scripts that publish
-    // 4apps/staticphp to Packagist, the 1.x migration aids, the skeleton's own changelog and
-    // design notes.
+    // 4apps/staticphp to Packagist, the 1.x migration aids, its CI workflow, the tooling
+    // suite, the framework's live-database integration checks, and the skeleton's own
+    // changelog, licence, logo and design notes.
     //
     // The list lives in upgrade.json rather than here because `staticphp upgrade` needs the
     // same one - it must never offer these files back. Two copies would drift, and the

@@ -3,8 +3,11 @@ parameters:
         - lib
         - src
         - scripts
-        - tests
         - staticphp
+        # SKELETON ONLY - scripts/post_create_project.php deletes the marked blocks when it
+        # generates a project. tests/ is the tooling suite and is stripped along with them.
+        - tests
+        # END SKELETON ONLY
 
     # Defines the path constants the framework creates at runtime, so the config files can be
     # analysed rather than written off. See the file for why.
@@ -24,6 +27,8 @@ parameters:
     # as a bare array, so every read off it is mixed. Worth revisiting once core is annotated.
     level: 9
 
+    # SKELETON ONLY - the only entry here covers the integration scripts, which are stripped
+    # from a generated project; left behind, phpstan would fail on the unmatched pattern.
     ignoreErrors:
         # $checks and $failures are globals the check() helpers increment. phpstan analyses
         # the top level scope only, where they are still the literal 0 they were assigned.
@@ -32,3 +37,4 @@ parameters:
             paths:
                 - scripts/i18n_integration.php
                 - scripts/migrations_integration.php
+    # END SKELETON ONLY
