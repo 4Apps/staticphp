@@ -1,17 +1,19 @@
 <?php
 
-namespace StaticPHP\Skeleton;
+namespace StaticPHP\Skeleton\App;
 
-require_once __DIR__ . '/Scaffolder.php';
+use StaticPHP\Skeleton\Upgrade\Cli as UpgradeCli;
 
 /**
- * `staticphp app ...` - creating and listing the applications under src/.
+ * `staticphp app ...` - creating, listing and upgrading the applications under src/.
  *
  * Dispatched from the cli entry point alongside migrate and i18n, before the routing
  * bootstrap: creating an application has no business being reachable over http.
  */
-class AppCli
+class Cli
 {
+    public const DESCRIPTION = 'Create, list and upgrade the applications under src/';
+
     /**
      * @param  string[] $args Arguments after "app"
      * @return int Exit code
@@ -23,7 +25,9 @@ class AppCli
         return match ($action) {
             'add' => self::add($args, $root),
             'list' => self::list($root),
-            default => self::usage($root),
+            'upgrade' => UpgradeCli::runApp($args, $root),
+            '--help', '-h', 'help' => self::usage($root, 0),
+            default => self::usage($root, 1),
         };
     }
 
@@ -109,19 +113,32 @@ class AppCli
         return 0;
     }
 
-    private static function usage(string $root): int
+    /**
+     * @param int $code What to exit with - asking for help succeeded, mistyping a
+     *                  subcommand did not, and both want the same text
+     */
+    private static function usage(string $root, int $code): int
     {
         $scaffolder = new Scaffolder($root);
 
+        echo "Applications live under src/, one directory each, sharing this project's\n";
+        echo "composer and npm dependencies. They are created from presets/ rather than\n";
+        echo "tracked, so a fresh checkout starts with none.\n\n";
         echo "Usage:\n";
         echo "  staticphp app add <Name> [--preset=<name>] [--force]\n";
-        echo "  staticphp app list\n\n";
+        echo "  staticphp app list\n";
+        echo "  staticphp app upgrade <Name> [--to=<tag>] [--from=<tag>] [--dry-run] [--yes]\n\n";
+        echo "  add       --force overlays onto an existing directory instead of refusing.\n";
+        echo "            Without --preset it asks, and takes twig when it cannot.\n";
+        echo "  upgrade   Re-applies the preset's changes to an application already created\n";
+        echo "            from it. `staticphp upgrade` does this for every application at\n";
+        echo "            once; this is for doing one on its own.\n\n";
         echo "Presets:\n";
 
         foreach ($scaffolder->presets() as $preset) {
             printf("  %-10s %s\n", $preset, $scaffolder->presetDescription($preset));
         }
 
-        return 1;
+        return $code;
     }
 }

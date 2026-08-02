@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The skeleton's own tooling - the scaffolder and the upgrader - as opposed to the
+  applications under src/, which each carry their own config because PUBLIC_PATH is a
+  constant and one process can therefore only ever be one application.
+
+  Nothing here boots the framework, so there is no bootstrap beyond composer's autoloader.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnWarning="true"
+         failOnDeprecation="true"
+         failOnNotice="true">
+  <testsuites>
+    <testsuite name="Tooling">
+      <directory>tests</directory>
+    </testsuite>
+  </testsuites>
+</phpunit>

@@ -1,0 +1,32 @@
+{
+    "ignore": [
+        "/src/*/",
+        "/.env",
+        "/.staticphp/",
+        "/vendor/",
+        "/node_modules/",
+        "/composer.lock",
+        "/package-lock.json"
+    ],
+    "once": [
+        "/README.md",
+        "/.version"
+    ],
+    "strip": [
+        "/scripts/version.bash",
+        "/scripts/release_tag.bash",
+        "/scripts/upgrade_v2_namespaces.bash",
+        "/docs/superpowers/",
+        "/UPGRADE.md",
+        "/CHANGELOG.md"
+    ],
+    "app": {
+        "ignore": [
+            "/.env",
+            "/Cache/",
+            "/Files/"
+        ],
+        "once": [],
+        "strip": []
+    }
+}

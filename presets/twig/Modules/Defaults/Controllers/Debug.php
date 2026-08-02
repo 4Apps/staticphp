@@ -123,8 +123,10 @@ class Debug extends Controller
      */
     private static function databases(): array
     {
-        $configured = Config::$items['db']['pdo'] ?? [];
-        if (empty($configured)) {
+        // Config::$items is a bare array, so every step into it is mixed until it is checked
+        $db = Config::$items['db'] ?? null;
+        $configured = (is_array($db) && is_array($db['pdo'] ?? null)) ? $db['pdo'] : [];
+        if ($configured === []) {
             return ['configured' => false];
         }
 

@@ -21,11 +21,11 @@ class Welcome extends Controller
      *
      * @access public
      * @static
-     * @param  string $class
-     * @param  string $method
+     * @param  string|null $class
+     * @param  string|null $method
      * @return void
      */
-    public static function construct($class = null, $method = null)
+    public static function construct(?string $class = null, ?string $method = null): void
     {
         // (Optionally) Call parent construct for view rendering and
         // access to self::$controller_url and self::$controller_url variables

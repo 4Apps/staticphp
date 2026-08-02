@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b9586bd1a7ad87c2c4c15df8d9a150cb",
+    "content-hash": "938cf7dc19980b42e6b1a83b8f852818",
     "packages": [
         {
             "name": "4apps/staticphp-core",
-            "version": "v2.0.329",
+            "version": "v2.1.364",
             "source": {
                 "type": "git",
                 "url": "https://github.com/gintsmurans/staticphp-core.git",
-                "reference": "026269f86a24ea4a455b9f040f5820d635668336"
+                "reference": "80f7e7f83b5ef87cd83efdd147f6dfaa6049435f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/gintsmurans/staticphp-core/zipball/026269f86a24ea4a455b9f040f5820d635668336",
-                "reference": "026269f86a24ea4a455b9f040f5820d635668336",
+                "url": "https://api.github.com/repos/gintsmurans/staticphp-core/zipball/80f7e7f83b5ef87cd83efdd147f6dfaa6049435f",
+                "reference": "80f7e7f83b5ef87cd83efdd147f6dfaa6049435f",
                 "shasum": ""
             },
             "require": {
@@ -28,6 +28,8 @@
             },
             "require-dev": {
                 "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
+                "phpstan/phpstan": "^2.2",
+                "phpstan/phpstan-phpunit": "^2.0",
                 "phpunit/phpunit": "^13.0",
                 "squizlabs/php_codesniffer": "^4.0",
                 "twig/twig": "^3.0"
@@ -36,10 +38,12 @@
                 "ext-apcu": "Required by Utils\\Models\\Cache\\CacheApcu and Utils\\Models\\Sessions\\SessionsApcu.",
                 "ext-iconv": "Required by Fv::translit() and Fv::setFriendly(); nothing else uses it.",
                 "ext-memcached": "Required by Utils\\Models\\Cache\\CacheMemcached and Utils\\Models\\Sessions\\SessionsMemcached.",
+                "ext-pcntl": "Lets Utils\\Models\\Queue\\Worker finish the job in hand on SIGTERM instead of being killed mid-job, and applies the per-job timeout. Without it the queue still runs, but a restart loses the running job until its reservation expires.",
                 "ext-pdo_mysql": "MySQL/MariaDB connections and the mysql migration driver.",
                 "ext-pdo_pgsql": "Postgres connections, Utils\\Models\\Sessions\\SessionsPgsql, and the postgres migration driver.",
                 "ext-pdo_sqlite": "SQLite connections and the sqlite migration driver.",
                 "ext-redis": "Required by Utils\\Models\\Cache\\CacheRedis and Utils\\Models\\Sessions\\SessionsRedis.",
+                "ext-sodium": "Required by Utils\\Models\\Crypto\\Crypto. Bundled and enabled by default in most php builds; an application that never encrypts a column does not need it.",
                 "mongodb/mongodb": "Required by Utils\\Models\\Sessions\\SessionsMongoDb.",
                 "phpoffice/phpspreadsheet": "Required by Presentation\\Models\\Tables\\Output\\Excel. Nothing else in the package touches it, so a table that only renders html does not need it.",
                 "twig/twig": "Template engine for the view layer. Leave it out of an api-only application - composer's files autoload is eager, so twig and the symfony polyfills it pulls in load eight files on every request whether or not a template is ever rendered."
@@ -63,9 +67,9 @@
             "description": "A lightweight PHP framework",
             "support": {
                 "issues": "https://github.com/gintsmurans/staticphp-core/issues",
-                "source": "https://github.com/gintsmurans/staticphp-core/tree/v2.0.329"
+                "source": "https://github.com/gintsmurans/staticphp-core/tree/v2.1.364"
             },
-            "time": "2026-08-01T13:50:45+00:00"
+            "time": "2026-08-02T04:36:17+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",

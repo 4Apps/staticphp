@@ -21,11 +21,13 @@
  * itself 4apps/staticphp, or a release script that offers to publish it.
  */
 
-require_once __DIR__ . '/Scaffolder.php';
-require_once __DIR__ . '/Presets.php';
+// Composer installs dependencies before it runs post-create-project-cmd, so the autoloader
+// is always there by the time this executes - and it is what supplies lib/.
+require_once __DIR__ . '/../vendor/autoload.php';
 
-use StaticPHP\Skeleton\Presets;
-use StaticPHP\Skeleton\Scaffolder;
+use StaticPHP\Skeleton\Upgrade\Ownership;
+use StaticPHP\Skeleton\App\Presets;
+use StaticPHP\Skeleton\App\Scaffolder;
 
 $root = dirname(__DIR__);
 $newProject = in_array('--new-project', array_slice($argv, 1), true);
@@ -160,13 +162,22 @@ function applyLocalIds(string $contents): string
 }
 
 /**
+ * Deletes one entry from upgrade.json's strip list. A trailing slash means a directory.
+ *
  * @param string $root Project root.
- * @param string $target Path to delete, relative to the project root.
+ * @param string $pattern Path to delete, anchored at the project root.
  * @return void
  */
-function removeFile(string $root, string $target): void
+function removePath(string $root, string $pattern): void
 {
+    $target = trim($pattern, '/');
     $path = $root . '/' . $target;
+
+    if (is_dir($path)) {
+        removeTree($path);
+        echo "  removed {$target}/\n";
+        return;
+    }
 
     if (is_file($path) === false) {
         echo "  gone    {$target}\n";
@@ -179,6 +190,29 @@ function removeFile(string $root, string $target): void
     }
 
     echo "  removed {$target}\n";
+}
+
+/**
+ * @param string $dir Absolute path.
+ * @return void
+ */
+function removeTree(string $dir): void
+{
+    foreach ((array) scandir($dir) as $entry) {
+        if (is_string($entry) === false || $entry === '.' || $entry === '..') {
+            continue;
+        }
+
+        $path = $dir . '/' . $entry;
+        if (is_dir($path) && is_link($path) === false) {
+            removeTree($path);
+            continue;
+        }
+
+        unlink($path);
+    }
+
+    rmdir($dir);
 }
 
 /**
@@ -257,17 +291,17 @@ createFirstApp($root, Presets::choose(new Scaffolder($root), DEFAULT_PRESET));
 if ($newProject === true) {
     untrackSkeletonIgnores($root);
 
-    // Publishes 4apps/staticphp to Packagist. An application tags its own releases however
-    // it likes; what it must not inherit is a script offering to publish the skeleton.
-    removeFile($root, 'scripts/version.bash');
-    removeFile($root, 'scripts/release_tag.bash');
-
-    // 1.x -> 2.0 migration aids. A project starting on 2.0 has nothing to upgrade.
-    removeFile($root, 'scripts/upgrade_v2_namespaces.bash');
-    removeFile($root, 'UPGRADE.md');
-
-    // The skeleton's own history, back to 0.8. Not this project's.
-    removeFile($root, 'CHANGELOG.md');
+    // Everything that only ever described the skeleton: the scripts that publish
+    // 4apps/staticphp to Packagist, the 1.x migration aids, the skeleton's own changelog and
+    // design notes.
+    //
+    // The list lives in upgrade.json rather than here because `staticphp upgrade` needs the
+    // same one - it must never offer these files back. Two copies would drift, and the
+    // symptom would be a later upgrade quietly restoring a release script into somebody's
+    // application.
+    foreach (Ownership::load([$root . '/upgrade.json'])->stripList() as $pattern) {
+        removePath($root, $pattern);
+    }
 
     resetComposerMetadata($root);
 

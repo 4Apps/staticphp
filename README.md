@@ -117,6 +117,41 @@ no round trip to fetch a token. State changing requests are checked against
 `StaticPHP\Utils\Models\Csrf` and the front end sends `X-CSRF-Token`. Every client side
 route falls through to the same shell, so deep links and reloads work.
 
+### Upgrading
+
+A project owns its files outright once `create-project` has run, so picking up a later
+release is a merge rather than a download:
+
+    ./staticphp upgrade                 # newest release
+    ./staticphp upgrade --dry-run       # just show the plan
+    ./staticphp upgrade --to=v2.1.0
+
+It compares three trees - what you have, the release you are on, and the release you are
+going to - and only asks about files that changed on **both** sides. Everything else is
+decided without you: untouched files take the new version, files only you changed are left
+alone. In practice that is a couple of questions rather than sixty.
+
+Applications go with it. `presets/` moving would otherwise never reach an
+already-scaffolded `src/Application`, so one run does the skeleton and every application
+the manifest knows about, onto the same tag. `./staticphp app upgrade Shop` does one on its
+own.
+
+For a collision you get `[d] diff  [m] merge  [t] take theirs  [k] keep mine  [s] skip`.
+`m` is a real three-way merge and can leave conflict markers, which are listed again at the
+end and set a non-zero exit code. `s` defers - the file is offered again next time rather
+than quietly absorbed. `--yes` applies the silent set and defers every collision, which is
+what you want in a script.
+
+Two things it will not do. It refuses on a dirty worktree, because `git checkout .` is the
+undo and there is no backup logic behind it. And it never touches `README.md`, `.version`,
+`.env`, `src/` (that is what `app upgrade` is for) or the lock files - `upgrade.json` holds
+that list, and `composer update` / `npm install` stay yours to run.
+
+`.staticphp/manifest.json` records which release each tree came from. Commit it. If it goes
+missing, or the project predates all of this, the upgrade matches your files against the
+published tags and tells you what it found before touching anything - so an older project
+is a normal upgrade with one extra confirmation.
+
 ### Assets
 
 All assets live in `src/Application/Public/assets/`. StaticPHP uses npm to handle css (SCSS)

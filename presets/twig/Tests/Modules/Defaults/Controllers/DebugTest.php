@@ -54,6 +54,22 @@ class DebugTest extends TestCase
     }
 
 
+    /**
+     * Config::$items is a bare array, so reaching three levels into it to write is an offset
+     * on mixed. Building the level below and assigning it whole keeps the analysis honest
+     * without pretending the shape is known.
+     *
+     * @param array<string, mixed> $connection
+     */
+    private function connection(string $name, array $connection): void
+    {
+        $db = Config::$items['db'] ?? null;
+        $pdo = (is_array($db) && is_array($db['pdo'] ?? null)) ? $db['pdo'] : [];
+        $pdo[$name] = $connection;
+
+        Config::$items['db'] = ['pdo' => $pdo];
+    }
+
     public function testReportsThePhpClockAndTimezone(): void
     {
         $php = $this->arr(Debug::index(), 'php');
@@ -73,12 +89,12 @@ class DebugTest extends TestCase
 
     public function testProbesASqliteConnection(): void
     {
-        Config::$items['db']['pdo']['sqlite_probe'] = [
+        $this->connection('sqlite_probe', [
             'string' => 'sqlite::memory:',
             'username' => '',
             'password' => '',
             'wrap_column' => '"',
-        ];
+        ]);
 
         $probe = $this->arr($this->arr(Debug::index(), 'databases'), 'sqlite_probe');
 
@@ -103,11 +119,11 @@ class DebugTest extends TestCase
 
     public function testAnUnreachableConnectionIsReportedRatherThanThrown(): void
     {
-        Config::$items['db']['pdo']['sqlite_probe'] = [
+        $this->connection('sqlite_probe', [
             'string' => 'sqlite:/no/such/directory/nothing.sqlite',
             'username' => '',
             'password' => '',
-        ];
+        ]);
 
         $probe = $this->arr($this->arr(Debug::index(), 'databases'), 'sqlite_probe');
 
@@ -118,16 +134,16 @@ class DebugTest extends TestCase
 
     public function testEveryConfiguredConnectionIsProbed(): void
     {
-        Config::$items['db']['pdo']['sqlite_probe'] = [
+        $this->connection('sqlite_probe', [
             'string' => 'sqlite::memory:',
             'username' => '',
             'password' => '',
-        ];
-        Config::$items['db']['pdo']['broken'] = [
+        ]);
+        $this->connection('broken', [
             'string' => 'sqlite:/no/such/directory/nothing.sqlite',
             'username' => '',
             'password' => '',
-        ];
+        ]);
 
         $probes = $this->arr(Debug::index(), 'databases');
 

@@ -16,6 +16,10 @@
 # twice, and would make `git pull` fight with whatever the application had become.
 /src/*/
 !/src/.gitkeep
+#
+# Same reasoning for the provenance manifest: it records which release a project's files
+# came from, and this repository is that release. Generated projects track theirs.
+/.staticphp/
 # END SKELETON ONLY
 
 # Build, Tmp, Cache and Bootstrap

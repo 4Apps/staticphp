@@ -1,7 +1,9 @@
 parameters:
     paths:
+        - lib
         - src
         - scripts
+        - tests
         - staticphp
 
     # Defines the path constants the framework creates at runtime, so the config files can be

@@ -5,11 +5,6 @@ define('SAPI', 'cli');
 
 require __DIR__ . '/vendor/autoload.php';
 
-if (count($argv) == 1) {
-    echo "Missing arguments\n";
-    exit -1;
-}
-
 // These are dispatched here, before the routing bootstrap at the bottom of this file.
 // Routing config has no notion of a cli-only route, so reaching them through a controller
 // would also expose them over http - on tools whose job is to change the schema, delete
@@ -20,24 +15,40 @@ if (count($argv) == 1) {
 // go in $localCommands and win on a name collision.
 $localCommands = [];
 
+// The skeleton's own commands, from lib/. They resolve first, and deliberately ahead of the
+// framework check below, because none of them touch the framework - upgrading in particular
+// has to keep working when the installed core is broken or missing, which is one of the
+// reasons to reach for it. They are kept in a generated project on purpose: presets/ ships
+// with it, so a project can add a second application later and pull in a later release.
+$cliCommands = $localCommands + StaticPHP\Skeleton\Cli::commands();
+
+// Help answers before the framework check below, and lists whatever is registered at the
+// time. On a broken or half-installed core that means a short list rather than an error,
+// which is more use than refusing to say anything at all.
+if (count($argv) === 1 || in_array($argv[1], ['--help', '-h', 'help'], true)) {
+    if (class_exists(StaticPHP\Core\Cli::class)) {
+        $cliCommands += StaticPHP\Core\Cli::commands();
+    }
+
+    echo StaticPHP\Skeleton\Cli::help($cliCommands);
+
+    // Asking for help succeeded; being given nothing to do did not
+    exit(count($argv) === 1 ? 1 : 0);
+}
+
+if (isset($cliCommands[$argv[1]])) {
+    $class = $cliCommands[$argv[1]];
+
+    exit($class::run(array_slice($argv, 2), __DIR__));
+}
+
 if (class_exists(StaticPHP\Core\Cli::class) === false) {
     fwrite(STDERR, "error: this skeleton needs a framework that exports StaticPHP\\Core\\Cli\n");
     fwrite(STDERR, "run: composer update 4apps/staticphp-core\n");
     exit(1);
 }
 
-$cliCommands = $localCommands + StaticPHP\Core\Cli::commands();
-
-// Creating an application is a skeleton concern rather than a framework one, so it lives
-// in scripts/ rather than being autoloaded from the vendor package. It is kept in a
-// generated project on purpose: presets/ ships with it, so an application can add a
-// second one later.
-if ($argv[1] === 'app' && is_file(__DIR__ . '/scripts/AppCli.php')) {
-    require __DIR__ . '/scripts/Presets.php';
-    require __DIR__ . '/scripts/AppCli.php';
-
-    exit(StaticPHP\Skeleton\AppCli::run(array_slice($argv, 2), __DIR__));
-}
+$cliCommands += StaticPHP\Core\Cli::commands();
 
 if (isset($cliCommands[$argv[1]])) {
     $class = $cliCommands[$argv[1]];
@@ -72,8 +83,8 @@ foreach ($argv as $param) {
 
     switch ($param) {
         case '--help':
-            echo "Help is on the way, meaning its not finished yet\n";
-            exit;
+            echo StaticPHP\Skeleton\Cli::help($cliCommands);
+            exit(0);
         case '--project':
         case '--query':
         case '--post':

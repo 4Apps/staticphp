@@ -257,16 +257,23 @@ foreach (['PGSQL' => 'postgres', 'MYSQL' => 'mysql'] as $prefix => $label) {
 
     // --- Locking -------------------------------------------------------------------------
     $tracker = new Tracker($pdo, $driver, 'sp_test_migrations');
-    $ran = $tracker->withLock(fn() => 'body ran');
-    check('withLock runs the body and releases', $ran === 'body ran');
 
-    $released = true;
+    // Observed through a side effect rather than the return value: withLock is annotated as
+    // returning whatever the body returns, so comparing against the literal would be a
+    // tautology the analyser can fold away, and would stop proving the body ran at all.
+    $ran = false;
+    $tracker->withLock(function () use (&$ran): void {
+        $ran = true;
+    });
+    check('withLock runs the body and releases', $ran);
+
+    $released = false;
     try {
         $tracker->withLock(fn() => throw new RuntimeException('boom'));
-        $released = false;
     } catch (RuntimeException $e) {
         // The lock must be free again even though the body threw
         $tracker->withLock(fn() => null);
+        $released = true;
     }
 
     check('the lock is released when the body throws', $released);

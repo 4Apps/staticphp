@@ -1,6 +1,8 @@
 <?php
 
-namespace StaticPHP\Skeleton;
+namespace StaticPHP\Skeleton\App;
+
+use StaticPHP\Skeleton\Manifest;
 
 /**
  * Creates an application under src/ from a preset.
@@ -116,15 +118,8 @@ class Scaffolder
         }
 
         $log = [];
-        foreach (['_base', $preset] as $layer) {
-            $count = $this->copyTree("{$this->root}/presets/{$layer}", $target);
+        foreach (self::compose("{$this->root}/presets", $preset, $target) as $layer => $count) {
             $log[] = sprintf('  copied  presets/%s (%d files)', $layer, $count);
-        }
-
-        // preset.json describes the preset, it is not part of the application
-        $leftover = "{$target}/preset.json";
-        if (is_file($leftover)) {
-            unlink($leftover);
         }
 
         // Without a .env the application boots with no APP_ENV, which reads as an unknown
@@ -137,8 +132,62 @@ class Scaffolder
         }
 
         $log = array_merge($log, $this->mergeNpmDependencies($preset));
+        $log = array_merge($log, $this->recordProvenance($name, $preset));
 
         return $log;
+    }
+
+    /**
+     * Notes which preset an application came from, so a later `staticphp app upgrade` knows
+     * what to compare it against.
+     *
+     * The release it was created from is deliberately left unset. A project unpacked by
+     * composer has no way to know the tag it came from - the version file holds only
+     * major.minor - so the first upgrade works it out by matching the tree against the
+     * origin's tags, which is the same path that retrofits an older project.
+     *
+     * @return string[]
+     */
+    private function recordProvenance(string $name, string $preset): array
+    {
+        $manifest = Manifest::load($this->root);
+        $manifest->setApp($name, $preset, null);
+
+        try {
+            $manifest->save($this->root);
+        } catch (\RuntimeException $e) {
+            return ['  skipped ' . Manifest::FILE . ' (' . $e->getMessage() . ')'];
+        }
+
+        return ['  recorded ' . Manifest::FILE];
+    }
+
+    /**
+     * Lays the preset layers down on top of each other, in order.
+     *
+     * Separate from create() because the upgrader has to reproduce a preset exactly as it
+     * was composed at some earlier tag, into a scratch directory, with no .env and no
+     * package.json involved. Two implementations of "what a preset expands to" would drift,
+     * and the upgrade would then compare against a tree that never existed.
+     *
+     * @param  string $presetsDir Directory holding _base and the named preset
+     * @return array<string, int> Layer name => files written
+     * @throws \RuntimeException
+     */
+    public static function compose(string $presetsDir, string $preset, string $into): array
+    {
+        $counts = [];
+        foreach (['_base', $preset] as $layer) {
+            $counts[$layer] = self::copyTree("{$presetsDir}/{$layer}", $into);
+        }
+
+        // preset.json describes the preset, it is not part of the application
+        $leftover = "{$into}/preset.json";
+        if (is_file($leftover)) {
+            unlink($leftover);
+        }
+
+        return $counts;
     }
 
     /**
@@ -243,7 +292,7 @@ class Scaffolder
      *
      * @return int Number of files written
      */
-    private function copyTree(string $from, string $to): int
+    private static function copyTree(string $from, string $to): int
     {
         if (is_dir($from) === false) {
             return 0;
@@ -263,7 +312,7 @@ class Scaffolder
             $target = "{$to}/{$entry}";
 
             if (is_dir($source)) {
-                $written += $this->copyTree($source, $target);
+                $written += self::copyTree($source, $target);
                 continue;
             }
 

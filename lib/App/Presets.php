@@ -1,6 +1,6 @@
 <?php
 
-namespace StaticPHP\Skeleton;
+namespace StaticPHP\Skeleton\App;
 
 /**
  * Choosing a preset, interactively when that is possible and silently when it is not.

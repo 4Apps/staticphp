@@ -130,6 +130,107 @@ jobs:
           done
           curl -fsS -o /dev/null -w 'GET / -> %{http_code}\n' http://127.0.0.1:8123/
 
+  upgrade:
+    name: Upgrade a generated project
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The upgrader reads the origin's tags, so it needs them all - and the historical
+          # tag below has to actually be there
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --optimize-autoloader
+
+      # Two tags off this commit: the tree as it is, and the tree with a change in each of
+      # the places an upgrade has to reach - a root config, a shipped script, and a preset
+      # file that an already-scaffolded application would otherwise never see.
+      #
+      # Synthetic rather than a real historical tag on purpose. The unit tests prove the
+      # classification; the point of this job is that it survives contact with the actual
+      # tree, and a pair built here keeps that honest as the repository moves on.
+      - name: Tag a before and an after
+        run: |
+          git config user.email ci@example.invalid
+          git config user.name CI
+          git tag -f v99.0.0-ci
+          printf '\n// upstream change\n' >> rspack.config.js
+          printf '\n# upstream change\n' >> scripts/clear_cache.bash
+          printf '\n// upstream change\n' >> presets/_base/Public/dev-router.php
+          git commit -qam 'next release'
+          git tag -f v99.1.0-ci
+
+      - name: Generate a project from the earlier one
+        run: |
+          git clone --quiet --shared . /tmp/project
+          cd /tmp/project
+          git checkout --quiet v99.0.0-ci
+          # Copied and re-dumped rather than symlinked: the autoloader has to resolve
+          # StaticPHP\Skeleton\ to *this* project's lib/, or the job would be exercising the
+          # workspace's copy of the upgrader and proving nothing about the generated one
+          cp -al "$GITHUB_WORKSPACE/vendor" vendor
+          composer dump-autoload --quiet
+          SP_PRESET=twig php scripts/post_create_project.php --new-project
+
+      - name: Record where it came from, and edit one file as a developer would
+        run: |
+          cd /tmp/project
+          printf '\n// local change\n' >> rspack.config.js
+          php -r '
+            require "vendor/autoload.php";
+            $m = StaticPHP\Skeleton\Manifest::load(".");
+            $m->origin = getenv("GITHUB_WORKSPACE");
+            $m->skeleton = "v99.0.0-ci";
+            $m->setApp("Application", "twig", "v99.0.0-ci");
+            $m->save(".");
+          '
+          git -c user.email=ci@example.invalid -c user.name=CI add -A
+          git -c user.email=ci@example.invalid -c user.name=CI commit -qm generated
+
+      # One command for the whole project: the skeleton files and every application the
+      # manifest records, all onto the same tag
+      - name: Upgrade it
+        run: |
+          cd /tmp/project
+          php staticphp upgrade --to=v99.1.0-ci --yes
+
+      - name: The right things moved, and the local edit did not
+        run: |
+          cd /tmp/project
+          grep -q 'upstream change' scripts/clear_cache.bash
+          grep -q 'upstream change' src/Application/Public/dev-router.php
+          grep -q 'local change' rspack.config.js
+          # Changed on both sides, so --yes must have left it entirely alone
+          ! grep -q 'upstream change' rspack.config.js
+
+      - name: No merge markers may be left behind
+        run: |
+          cd /tmp/project
+          if grep -rIn --exclude-dir=vendor --exclude-dir=.git -e '^<<<<<<< mine' .; then
+            echo "an unattended upgrade left conflict markers" >&2
+            exit 1
+          fi
+
+      # A second run has to be a no-op. This is what catches a broken manifest writer - the
+      # failure mode that would quietly spoil everyone's next upgrade.
+      - name: Upgrading again changes nothing
+        run: |
+          cd /tmp/project
+          git -c user.email=ci@example.invalid -c user.name=CI add -A
+          git -c user.email=ci@example.invalid -c user.name=CI commit -qm upgraded --allow-empty
+          php staticphp upgrade --to=v99.1.0-ci --yes | tee /tmp/second.log
+          grep -q 'already on v99.1.0-ci' /tmp/second.log
+          git diff --exit-code
+
   build-info:
     name: Build info
     runs-on: ubuntu-latest

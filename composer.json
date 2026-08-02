@@ -16,7 +16,7 @@
         "ext-intl": "*",
         "ext-mbstring": "*",
         "ext-pdo": "*",
-        "4apps/staticphp-core": "^2.0",
+        "4apps/staticphp-core": "^2.1.364",
         "twig/twig": "^3.0",
         "symfony/dotenv": "^8.0"
     },
@@ -28,14 +28,24 @@
     "config": {
         "sort-packages": true
     },
+    "autoload": {
+        "psr-4": {
+            "StaticPHP\\Skeleton\\": "lib/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "StaticPHP\\Skeleton\\Tests\\": "tests/"
+        }
+    },
     "scripts": {
         "post-create-project-cmd": [
             "@php scripts/post_create_project.php --new-project",
             "@composer update --lock --no-interaction"
         ],
         "setup": "@php scripts/post_create_project.php",
-        "test": "for c in src/*/phpunit.xml; do [ -f \"$c\" ] || continue; php vendor/bin/phpunit -c \"$c\" || exit 1; done",
-        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src",
+        "test": "php vendor/bin/phpunit -c phpunit.xml || exit 1; for c in src/*/phpunit.xml; do [ -f \"$c\" ] || continue; php vendor/bin/phpunit -c \"$c\" || exit 1; done",
+        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml lib src scripts tests",
         "stan": "@php vendor/bin/phpstan analyse --no-progress --memory-limit=1G"
     }
 }
