@@ -3,12 +3,18 @@
     "description": "Application skeleton for the StaticPHP framework",
     "license": "MIT",
     "type": "project",
+    "homepage": "https://4apps.github.io/staticphp-core/skeleton/overview/",
     "authors": [
         {
             "name": "Gints Murans",
             "email": "gm@gm.lv"
         }
     ],
+    "support": {
+        "docs": "https://4apps.github.io/staticphp-core/skeleton/overview/",
+        "issues": "https://github.com/4Apps/staticphp/issues",
+        "source": "https://github.com/4Apps/staticphp"
+    },
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {

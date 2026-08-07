@@ -6,6 +6,9 @@
 
 Simple, modular php framework.
 
+Full documentation: https://4apps.github.io/staticphp-core/ - the skeleton itself is
+covered under [Skeleton](https://4apps.github.io/staticphp-core/skeleton/overview/).
+
 ### Requirements
 
 -   PHP 8.4+
@@ -262,14 +265,14 @@ as its starting point. Core carries a baseline because it was analysed for the f
 against an existing tree.
 
 The framework's own suite lives in
-[staticphp-core](https://github.com/gintsmurans/staticphp-core) and runs there. This
+[staticphp-core](https://github.com/4Apps/staticphp-core) and runs there. This
 repository's suite covers the skeleton: that the front controller, the config and the demo
 module still work against whichever version of the package is installed.
 
 **Working on the framework and the skeleton together.** Point composer at a local checkout
 instead of Packagist:
 
-    git clone git@github.com:gintsmurans/staticphp-core.git ../staticphp-core
+    git clone git@github.com:4Apps/staticphp-core.git ../staticphp-core
     composer config repositories.core path ../staticphp-core
     composer require 4apps/staticphp-core:dev-develop
 

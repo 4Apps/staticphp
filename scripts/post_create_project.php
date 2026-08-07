@@ -256,7 +256,7 @@ function resetComposerMetadata(string $root): void
     $composer['name'] = 'vendor/app';
     $composer['description'] = '';
     $composer['license'] = 'proprietary';
-    unset($composer['authors']);
+    unset($composer['authors'], $composer['homepage'], $composer['support']);
 
     // The tooling suite goes with tests/; what is left has nothing to autoload.
     unset($composer['autoload-dev']);
@@ -330,8 +330,8 @@ if ($newProject === true) {
     replaceFile($root, 'README.md', <<<'MARKDOWN'
     # Application
 
-    Built on [StaticPHP](https://github.com/gintsmurans/staticphp) - framework documentation,
-    configuration reference and upgrade notes live there.
+    Built on [StaticPHP](https://4apps.github.io/staticphp-core/) - framework
+    documentation, configuration reference and upgrade notes live there.
 
     ## Running it
 

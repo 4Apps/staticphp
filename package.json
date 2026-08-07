@@ -8,12 +8,12 @@
   "main": "",
   "repository": {
     "type": "git",
-    "url": "git@github.com:gintsmurans/staticphp.git"
+    "url": "git@github.com:4Apps/staticphp.git"
   },
   "bugs": {
-    "url": "https://github.com/gintsmurans/staticphp/issues"
+    "url": "https://github.com/4Apps/staticphp/issues"
   },
-  "homepage": "https://github.com/gintsmurans/staticphp",
+  "homepage": "https://github.com/4Apps/staticphp",
   "engines": {
     "node": ">=22"
   },

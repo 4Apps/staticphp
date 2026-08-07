@@ -18,7 +18,7 @@ class Manifest
 {
     public const DIR = '.staticphp';
     public const FILE = '.staticphp/manifest.json';
-    public const DEFAULT_ORIGIN = 'https://github.com/gintsmurans/staticphp.git';
+    public const DEFAULT_ORIGIN = 'https://github.com/4Apps/staticphp.git';
 
     /**
      * @param array<string, array{preset: string, version: string|null}> $apps
