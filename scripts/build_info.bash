@@ -12,6 +12,10 @@
 #
 # Output is gitignored. When it is absent the application falls back to a ".dev" label,
 # so a working copy needs no build step.
+#
+# BUILD_INFO_OUTPUT overrides where the file is written, which is what the docker build
+# stage needs: the version has to come from this checkout's history, but the stamp belongs
+# in the tree being packaged.
 
 set -Eeuo pipefail
 
@@ -19,7 +23,7 @@ THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_PATH="$(cd "${THIS_DIR}/.." && pwd)"
 
 VERSION_FILE="${BASE_PATH}/.version"
-OUTPUT_FILE="${BASE_PATH}/.build_info.json"
+OUTPUT_FILE="${BUILD_INFO_OUTPUT:-${BASE_PATH}/.build_info.json}"
 
 if [ ! -f "$VERSION_FILE" ]; then
     echo "error: ${VERSION_FILE} not found" >&2
