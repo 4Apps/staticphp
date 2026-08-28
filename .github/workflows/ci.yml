@@ -58,13 +58,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The scaffolder below is php, and ./staticphp loads the composer autoloader before
+      # it does anything else - so the php side has to be installed even here
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
+          coverage: none
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: |
+          composer install --no-interaction --no-progress --optimize-autoloader
+          npm ci --no-audit --no-fund
 
       - name: Scaffold the default application
         run: ./staticphp app add Application --preset=twig
