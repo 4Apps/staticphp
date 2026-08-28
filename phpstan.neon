@@ -27,9 +27,14 @@ parameters:
     # as a bare array, so every read off it is mixed. Worth revisiting once core is annotated.
     level: 9
 
-    # SKELETON ONLY - the only entry here covers the integration scripts, which are stripped
-    # from a generated project; left behind, phpstan would fail on the unmatched pattern.
     ignoreErrors:
+        # PHP 8.5 reports register_argc_argv as off in the CLI SAPI while still populating
+        # $argv, and phpstan believes the ini setting - php/php-src#20279
+        -
+            message: '#^Variable \$arg[cv] might not be defined\.$#'
+            reportUnmatched: false
+        # SKELETON ONLY - the entry below covers the integration scripts, which are stripped
+        # from a generated project; left behind, phpstan would fail on the unmatched pattern.
         # $checks and $failures are globals the check() helpers increment. phpstan analyses
         # the top level scope only, where they are still the literal 0 they were assigned.
         -
@@ -37,4 +42,4 @@ parameters:
             paths:
                 - scripts/i18n_integration.php
                 - scripts/migrations_integration.php
-    # END SKELETON ONLY
+        # END SKELETON ONLY
